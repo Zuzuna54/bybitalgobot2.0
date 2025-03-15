@@ -13,14 +13,14 @@ import json
 import plotly.graph_objects as go
 import pandas as pd
 
-from .performance_view import (
+from src.dashboard.services.chart_service import (
     create_strategy_performance_graph,
     create_strategy_comparison_graph,
-    render_top_strategies_card,
     create_detailed_performance_breakdown,
     create_market_condition_performance,
     create_strategy_correlation_matrix
 )
+from .performance_view import render_top_strategies_card
 from .signals_view import render_recent_signals_table
 
 

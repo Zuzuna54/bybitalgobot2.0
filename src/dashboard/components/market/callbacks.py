@@ -13,6 +13,7 @@ from loguru import logger
 
 from src.dashboard.components.market.market_panel import create_market_panel
 from src.dashboard.components.error_display import create_error_message
+from src.dashboard.services.chart_service import create_candlestick_chart
 
 
 def register_market_callbacks(app: dash.Dash, get_market_data_func: Callable) -> None:
@@ -119,44 +120,13 @@ def register_market_callbacks(app: dash.Dash, get_market_data_func: Callable) ->
                         date_column="timestamp"
                     )
                 
-                # Create candlestick chart
-                fig = go.Figure(data=[
-                    go.Candlestick(
-                        x=candles['timestamp'],
-                        open=candles['open'],
-                        high=candles['high'],
-                        low=candles['low'],
-                        close=candles['close'],
-                        name="Price"
-                    )
-                ])
-                
-                # Add volume as bar chart on secondary y-axis
-                if 'volume' in candles.columns:
-                    fig.add_trace(
-                        go.Bar(
-                            x=candles['timestamp'],
-                            y=candles['volume'],
-                            name="Volume",
-                            marker_color='rgba(128, 128, 128, 0.5)',
-                            yaxis="y2"
-                        )
-                    )
-                
-                # Update layout
-                fig.update_layout(
+                # Use chart service to create candlestick chart
+                fig = create_candlestick_chart(
+                    candles=candles,
+                    symbol=market_data['symbol'],
                     title=f"{market_data['symbol']} Price Chart",
-                    xaxis_title="Time",
-                    yaxis_title="Price",
-                    yaxis2=dict(
-                        title="Volume",
-                        overlaying="y",
-                        side="right",
-                        showgrid=False
-                    ),
-                    xaxis_rangeslider_visible=False,
-                    height=500,
-                    margin=dict(l=50, r=50, t=50, b=50)
+                    show_volume=True,
+                    height=500
                 )
                 
                 chart = dcc.Graph(figure=fig)

@@ -14,7 +14,6 @@ import dash_bootstrap_components as dbc
 from src.dashboard.components.orderbook.visualization import (
     render_imbalance_indicator,
     render_liquidity_ratio,
-    create_orderbook_depth_graph,
     render_support_resistance_levels,
     render_execution_recommendations
 )
@@ -24,6 +23,7 @@ from src.dashboard.components.orderbook.data_processing import (
     identify_support_resistance_levels,
     generate_execution_recommendations
 )
+from src.dashboard.services.chart_service import create_orderbook_depth_chart
 
 
 def register_orderbook_callbacks(app: dash.Dash, get_orderbook_data_func: Callable) -> None:
@@ -306,7 +306,12 @@ def register_orderbook_callbacks(app: dash.Dash, get_orderbook_data_func: Callab
         # Render components
         imbalance_indicator = render_imbalance_indicator(imbalance)
         liquidity_ratio_indicator = render_liquidity_ratio(liquidity)
-        depth_graph = create_orderbook_depth_graph(orderbook, support_levels, resistance_levels)
+        depth_graph = create_orderbook_depth_chart(
+            orderbook, 
+            depth=20,
+            support_levels=support_levels, 
+            resistance_levels=resistance_levels
+        )
         support_resistance_content = render_support_resistance_levels(support_levels, resistance_levels)
         execution_recommendations_content = render_execution_recommendations(recommendations, risk_tolerance_normalized)
         

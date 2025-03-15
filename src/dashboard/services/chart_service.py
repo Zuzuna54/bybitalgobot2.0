@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import plotly.graph_objects as go
 import plotly.express as px
 from loguru import logger
+from plotly.subplots import make_subplots
 
 
 # Standard chart theme configuration
@@ -619,5 +620,747 @@ def create_custom_indicator_chart(
         margin=dict(l=40, r=40, t=40, b=40),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
+    
+    return fig
+
+
+def create_candlestick_chart(
+    candles: pd.DataFrame,
+    symbol: str = "",
+    title: Optional[str] = None,
+    show_volume: bool = True,
+    height: int = 500
+) -> go.Figure:
+    """
+    Create a candlestick chart with optional volume bars.
+    
+    Args:
+        candles: DataFrame with OHLCV data
+        symbol: Trading symbol
+        title: Optional chart title
+        show_volume: Whether to show volume bars
+        height: Chart height in pixels
+        
+    Returns:
+        Plotly figure object
+    """
+    if candles is None or candles.empty:
+        chart_title = title if title else f"{symbol} Price Chart"
+        return create_empty_chart(chart_title)
+    
+    # Create candlestick chart
+    fig = go.Figure(data=[
+        go.Candlestick(
+            x=candles['timestamp'] if 'timestamp' in candles.columns else candles.index,
+            open=candles['open'],
+            high=candles['high'],
+            low=candles['low'],
+            close=candles['close'],
+            name="Price"
+        )
+    ])
+    
+    # Add volume as bar chart on secondary y-axis
+    if show_volume and 'volume' in candles.columns:
+        fig.add_trace(
+            go.Bar(
+                x=candles['timestamp'] if 'timestamp' in candles.columns else candles.index,
+                y=candles['volume'],
+                name="Volume",
+                marker_color='rgba(128, 128, 128, 0.5)',
+                yaxis="y2"
+            )
+        )
+    
+    # Set chart title
+    chart_title = title if title else f"{symbol} Price Chart"
+    
+    # Apply standard theme
+    fig = apply_chart_theme(fig, chart_title)
+    
+    # Update layout with additional settings
+    fig.update_layout(
+        xaxis_title="Time",
+        yaxis_title="Price",
+        yaxis2=dict(
+            title="Volume",
+            overlaying="y",
+            side="right",
+            showgrid=False
+        ),
+        xaxis_rangeslider_visible=False,
+        height=height
+    )
+    
+    return fig
+
+
+def create_orderbook_depth_chart(
+    orderbook: Dict[str, Any],
+    depth: int = 20,
+    support_levels: Optional[List[float]] = None,
+    resistance_levels: Optional[List[float]] = None,
+    height: int = 500
+) -> go.Figure:
+    """
+    Create an orderbook depth chart visualization.
+    
+    Args:
+        orderbook: Dictionary with bids and asks arrays
+        depth: Number of price levels to show
+        support_levels: Optional list of support price levels
+        resistance_levels: Optional list of resistance price levels
+        height: Chart height in pixels
+        
+    Returns:
+        Plotly figure object
+    """
+    if not orderbook or 'bids' not in orderbook or 'asks' not in orderbook:
+        return create_empty_chart("Orderbook Depth")
+    
+    bids = orderbook['bids']
+    asks = orderbook['asks']
+    
+    if not bids or not asks:
+        return create_empty_chart("Orderbook Depth")
+    
+    # Get current market price (midpoint between best bid and best ask)
+    best_bid = bids[0][0] if bids else None
+    best_ask = asks[0][0] if asks else None
+    
+    if best_bid is None or best_ask is None:
+        return create_empty_chart("Orderbook Depth")
+    
+    # Calculate midpoint price
+    mid_price = (best_bid + best_ask) / 2
+    
+    # Limit the number of price levels based on depth parameter
+    limited_bids = bids[:depth] if len(bids) > depth else bids
+    limited_asks = asks[:depth] if len(asks) > depth else asks
+    
+    # Extract prices and sizes
+    bid_prices = [bid[0] for bid in limited_bids]
+    bid_sizes = [bid[1] for bid in limited_bids]
+    ask_prices = [ask[0] for ask in limited_asks]
+    ask_sizes = [ask[1] for ask in limited_asks]
+    
+    # Calculate cumulative sizes
+    bid_cumulative = np.cumsum(bid_sizes)
+    ask_cumulative = np.cumsum(ask_sizes)
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add bid depth trace
+    fig.add_trace(go.Scatter(
+        x=bid_prices[::-1],  # Reverse to show highest bids on left
+        y=bid_cumulative[::-1],
+        mode='lines',
+        name='Bids',
+        line=dict(color='rgba(50, 171, 96, 0.8)', width=2),
+        fill='tozeroy',
+        fillcolor='rgba(50, 171, 96, 0.3)'
+    ))
+    
+    # Add ask depth trace
+    fig.add_trace(go.Scatter(
+        x=ask_prices,
+        y=ask_cumulative,
+        mode='lines',
+        name='Asks',
+        line=dict(color='rgba(220, 53, 69, 0.8)', width=2),
+        fill='tozeroy',
+        fillcolor='rgba(220, 53, 69, 0.3)'
+    ))
+    
+    # Add support levels if provided
+    if support_levels:
+        for level in support_levels:
+            if level < best_bid * 0.7 or level > best_ask * 1.3:
+                continue  # Skip levels that are too far away
+                
+            fig.add_shape(
+                type="line",
+                x0=level,
+                y0=0,
+                x1=level,
+                y1=max(max(bid_cumulative), max(ask_cumulative)) * 0.9,
+                line=dict(color="green", width=1.5, dash="dash"),
+                name=f"Support: {level:.2f}"
+            )
+    
+    # Add resistance levels if provided
+    if resistance_levels:
+        for level in resistance_levels:
+            if level < best_bid * 0.7 or level > best_ask * 1.3:
+                continue  # Skip levels that are too far away
+                
+            fig.add_shape(
+                type="line",
+                x0=level,
+                y0=0,
+                x1=level,
+                y1=max(max(bid_cumulative), max(ask_cumulative)) * 0.9,
+                line=dict(color="red", width=1.5, dash="dash"),
+                name=f"Resistance: {level:.2f}"
+            )
+    
+    # Apply standard theme
+    fig = apply_chart_theme(fig, "Orderbook Depth")
+    
+    # Add current price line
+    fig.add_shape(
+        type="line",
+        x0=mid_price,
+        y0=0,
+        x1=mid_price,
+        y1=max(max(bid_cumulative), max(ask_cumulative)),
+        line=dict(color="rgba(70, 130, 180, 1)", width=2),
+        name="Current Price"
+    )
+    
+    # Add midpoint annotation
+    fig.add_annotation(
+        x=mid_price,
+        y=max(max(bid_cumulative), max(ask_cumulative)) * 0.95,
+        text=f"${mid_price:.2f}",
+        showarrow=True,
+        arrowhead=2,
+        arrowsize=1,
+        arrowwidth=2,
+        arrowcolor="rgba(70, 130, 180, 1)",
+        font=dict(size=12, color="rgba(70, 130, 180, 1)")
+    )
+    
+    # Update layout
+    fig.update_layout(
+        xaxis_title="Price",
+        yaxis_title="Cumulative Size",
+        height=height,
+        hovermode="x unified"
+    )
+    
+    # Update hover templates
+    fig.update_traces(
+        hovertemplate="<b>Price</b>: $%{x:.2f}<br><b>Cumulative Size</b>: %{y:.4f}<extra></extra>"
+    )
+    
+    return fig
+
+
+def create_strategy_performance_graph(strategy_performance: List[Dict[str, Any]]) -> go.Figure:
+    """
+    Create the strategy performance comparison graph.
+    
+    Args:
+        strategy_performance: List of strategy performance dictionaries
+        
+    Returns:
+        Plotly figure object
+    """
+    if not strategy_performance:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No strategy performance data available",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Convert to DataFrame for easier manipulation
+    df = pd.DataFrame(strategy_performance)
+    
+    # Prepare metrics for visualization
+    metrics = ['win_rate', 'profit_factor', 'avg_profit_pct', 'sharpe_ratio']
+    display_names = {
+        'win_rate': 'Win Rate',
+        'profit_factor': 'Profit Factor',
+        'avg_profit_pct': 'Avg. Profit %',
+        'sharpe_ratio': 'Sharpe Ratio'
+    }
+    
+    # Create subplots
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=[display_names[m] for m in metrics],
+        vertical_spacing=0.1,
+        horizontal_spacing=0.1
+    )
+    
+    # Add bars for each metric
+    for i, metric in enumerate(metrics):
+        row = i // 2 + 1
+        col = i % 2 + 1
+        
+        # Sort by current metric
+        sorted_df = df.sort_values(metric, ascending=False)
+        
+        # Add bars
+        fig.add_trace(
+            go.Bar(
+                x=sorted_df['strategy_name'],
+                y=sorted_df[metric],
+                marker=dict(
+                    color='rgba(50, 171, 96, 0.7)',
+                    line=dict(color='rgba(50, 171, 96, 1.0)', width=1)
+                ),
+                name=display_names[metric]
+            ),
+            row=row, col=col
+        )
+    
+    # Update layout
+    fig.update_layout(
+        height=600,
+        showlegend=False,
+        template="plotly_white",
+        margin=dict(l=40, r=40, t=60, b=40)
+    )
+    
+    # Apply standard theme
+    apply_chart_theme(fig)
+    
+    return fig
+
+
+def create_strategy_comparison_graph(
+    strategy_performance: List[Dict[str, Any]],
+    selected_strategies: List[str]
+) -> go.Figure:
+    """
+    Create the strategy comparison graph.
+    
+    Args:
+        strategy_performance: List of strategy performance dictionaries
+        selected_strategies: List of strategy names to compare
+        
+    Returns:
+        Plotly figure object
+    """
+    if not strategy_performance or not selected_strategies:
+        fig = go.Figure()
+        fig.update_layout(
+            title="Select strategies to compare",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Convert to DataFrame for easier manipulation
+    df = pd.DataFrame(strategy_performance)
+    
+    # Filter selected strategies
+    df = df[df['strategy_name'].isin(selected_strategies)]
+    
+    if df.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No data for selected strategies",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Select metrics for comparison
+    metrics = [
+        'win_rate', 'profit_factor', 'total_trades', 'total_pnl',
+        'avg_profit_pct', 'max_drawdown', 'sharpe_ratio', 'avg_trade_duration_hours'
+    ]
+    
+    # Format for display
+    metric_display = {
+        'win_rate': 'Win Rate (%)',
+        'profit_factor': 'Profit Factor',
+        'total_trades': 'Total Trades',
+        'total_pnl': 'Total P&L ($)',
+        'avg_profit_pct': 'Avg. Profit (%)',
+        'max_drawdown': 'Max Drawdown (%)',
+        'sharpe_ratio': 'Sharpe Ratio',
+        'avg_trade_duration_hours': 'Avg. Trade Duration (hrs)'
+    }
+    
+    # Create polar chart for comparison
+    fig = go.Figure()
+    
+    # Normalize metrics to 0-1 range for radar chart
+    df_norm = df.copy()
+    for metric in metrics:
+        if metric in df.columns:
+            if df[metric].max() == df[metric].min():
+                df_norm[metric] = 0.5
+            else:
+                # Normalize between 0 and 1
+                if metric == 'max_drawdown':
+                    # Invert drawdown (lower is better)
+                    max_val = df[metric].max()
+                    min_val = df[metric].min()
+                    df_norm[metric] = 1 - ((df[metric] - min_val) / (max_val - min_val) if max_val > min_val else 0)
+                else:
+                    max_val = df[metric].max()
+                    min_val = df[metric].min()
+                    df_norm[metric] = (df[metric] - min_val) / (max_val - min_val) if max_val > min_val else 0
+    
+    # Add traces for each strategy
+    for _, strategy in df.iterrows():
+        strategy_name = strategy['strategy_name']
+        strategy_norm = df_norm[df_norm['strategy_name'] == strategy_name].iloc[0]
+        
+        # Get values for available metrics
+        available_metrics = [m for m in metrics if m in df.columns]
+        values = [strategy_norm[m] for m in available_metrics]
+        
+        # Add radar trace
+        fig.add_trace(go.Scatterpolar(
+            r=values,
+            theta=[metric_display.get(m, m) for m in available_metrics],
+            fill='toself',
+            name=strategy_name
+        ))
+    
+    # Update layout
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 1]
+            )
+        ),
+        showlegend=True,
+        template="plotly_white",
+        height=500,
+        margin=dict(l=40, r=40, t=40, b=40)
+    )
+    
+    # Apply standard theme
+    apply_chart_theme(fig)
+    
+    return fig
+
+
+def create_detailed_performance_breakdown(
+    strategy_performance: List[Dict[str, Any]],
+    selected_strategy: str = None
+) -> go.Figure:
+    """
+    Create a detailed performance breakdown by timeframe.
+    
+    Args:
+        strategy_performance: List of strategy performance dictionaries
+        selected_strategy: The specific strategy to analyze (if None, uses top performer)
+        
+    Returns:
+        Plotly figure with detailed performance breakdown
+    """
+    if not strategy_performance:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No strategy performance data available",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Convert to DataFrame for easier manipulation
+    df = pd.DataFrame(strategy_performance)
+    
+    # If no strategy is selected, use the top performer by total PnL
+    if not selected_strategy or selected_strategy not in df['strategy_name'].values:
+        if 'total_pnl' in df.columns:
+            df = df.sort_values('total_pnl', ascending=False)
+            selected_strategy = df.iloc[0]['strategy_name']
+        else:
+            selected_strategy = df.iloc[0]['strategy_name']
+    
+    # Filter to selected strategy
+    strategy_data = df[df['strategy_name'] == selected_strategy].iloc[0]
+    
+    # Check if we have timeframe data
+    timeframe_data = strategy_data.get('timeframe_performance', {})
+    if not timeframe_data:
+        fig = go.Figure()
+        fig.update_layout(
+            title=f"No timeframe data available for {selected_strategy}",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Convert timeframe data to DataFrame
+    timeframe_df = pd.DataFrame([
+        {"timeframe": tf, **metrics}
+        for tf, metrics in timeframe_data.items()
+    ])
+    
+    # Create the figure with subplots
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=[
+            "Win Rate by Timeframe", 
+            "Profit Factor by Timeframe",
+            "Average Profit % by Timeframe", 
+            "Number of Trades by Timeframe"
+        ],
+        vertical_spacing=0.15,
+        horizontal_spacing=0.1
+    )
+    
+    # Sort timeframes
+    timeframe_order = {
+        'hourly': 0, 
+        'daily': 1, 
+        'weekly': 2, 
+        'monthly': 3
+    }
+    
+    timeframe_df['sort_order'] = timeframe_df['timeframe'].map(
+        lambda x: timeframe_order.get(x, 999)
+    )
+    timeframe_df = timeframe_df.sort_values('sort_order')
+    
+    # Add traces
+    fig.add_trace(
+        go.Bar(
+            x=timeframe_df['timeframe'],
+            y=timeframe_df['win_rate'],
+            marker_color='rgba(50, 171, 96, 0.7)',
+            name="Win Rate"
+        ),
+        row=1, col=1
+    )
+    
+    fig.add_trace(
+        go.Bar(
+            x=timeframe_df['timeframe'],
+            y=timeframe_df['profit_factor'],
+            marker_color='rgba(55, 83, 109, 0.7)',
+            name="Profit Factor"
+        ),
+        row=1, col=2
+    )
+    
+    fig.add_trace(
+        go.Bar(
+            x=timeframe_df['timeframe'],
+            y=timeframe_df['avg_profit_pct'],
+            marker_color='rgba(70, 130, 180, 0.7)',
+            name="Avg Profit %"
+        ),
+        row=2, col=1
+    )
+    
+    fig.add_trace(
+        go.Bar(
+            x=timeframe_df['timeframe'],
+            y=timeframe_df['trade_count'],
+            marker_color='rgba(214, 39, 40, 0.7)',
+            name="Trade Count"
+        ),
+        row=2, col=2
+    )
+    
+    # Update layout
+    fig.update_layout(
+        height=600,
+        title_text=f"Performance Breakdown for {selected_strategy}",
+        showlegend=False,
+        template="plotly_white",
+        margin=dict(l=40, r=40, t=80, b=40)
+    )
+    
+    # Apply standard theme
+    apply_chart_theme(fig)
+    
+    return fig
+
+
+def create_market_condition_performance(
+    strategy_performance: List[Dict[str, Any]],
+    selected_strategy: str = None
+) -> go.Figure:
+    """
+    Create a visualization of strategy performance under different market conditions.
+    
+    Args:
+        strategy_performance: List of strategy performance dictionaries
+        selected_strategy: The specific strategy to analyze (if None, uses top performer)
+        
+    Returns:
+        Plotly figure with market condition performance data
+    """
+    if not strategy_performance:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No strategy performance data available",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Convert to DataFrame for easier manipulation
+    df = pd.DataFrame(strategy_performance)
+    
+    # If no strategy is selected, use the top performer by total PnL
+    if not selected_strategy or selected_strategy not in df['strategy_name'].values:
+        if 'total_pnl' in df.columns:
+            df = df.sort_values('total_pnl', ascending=False)
+            selected_strategy = df.iloc[0]['strategy_name']
+        else:
+            selected_strategy = df.iloc[0]['strategy_name']
+    
+    # Filter to selected strategy
+    strategy_data = df[df['strategy_name'] == selected_strategy].iloc[0]
+    
+    # Check if we have market condition data
+    market_condition_data = strategy_data.get('market_condition_performance', {})
+    if not market_condition_data:
+        fig = go.Figure()
+        fig.update_layout(
+            title=f"No market condition data available for {selected_strategy}",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Convert market condition data to DataFrame
+    market_df = pd.DataFrame([
+        {"condition": condition, **metrics}
+        for condition, metrics in market_condition_data.items()
+    ])
+    
+    # Create heatmap data
+    conditions = market_df['condition'].tolist()
+    metrics = ['win_rate', 'profit_factor', 'avg_profit_pct', 'sharpe_ratio']
+    
+    # Create normalized values for better heatmap visualization
+    for metric in metrics:
+        if metric in market_df.columns:
+            max_val = market_df[metric].max()
+            min_val = market_df[metric].min()
+            if max_val > min_val:
+                market_df[f'{metric}_normalized'] = (market_df[metric] - min_val) / (max_val - min_val)
+            else:
+                market_df[f'{metric}_normalized'] = 0.5
+    
+    # Create the figure with subplots
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=[
+            "Win Rate by Market Condition", 
+            "Profit Factor by Market Condition",
+            "Avg Profit % by Market Condition", 
+            "Sharpe Ratio by Market Condition"
+        ],
+        vertical_spacing=0.15,
+        horizontal_spacing=0.1
+    )
+    
+    # Add bars for each metric
+    for i, metric in enumerate(metrics):
+        if metric in market_df.columns:
+            row = i // 2 + 1
+            col = i % 2 + 1
+            
+            fig.add_trace(
+                go.Bar(
+                    x=market_df['condition'],
+                    y=market_df[metric],
+                    marker=dict(
+                        color=market_df[f'{metric}_normalized'],
+                        colorscale='Viridis',
+                        showscale=False
+                    ),
+                    text=market_df[metric].round(2),
+                    textposition='auto',
+                    name=metric.replace('_', ' ').title(),
+                ),
+                row=row, col=col
+            )
+    
+    # Update layout
+    fig.update_layout(
+        height=600,
+        title_text=f"Performance by Market Condition for {selected_strategy}",
+        showlegend=False,
+        template="plotly_white",
+        margin=dict(l=40, r=40, t=80, b=40)
+    )
+    
+    # Apply standard theme
+    apply_chart_theme(fig)
+    
+    return fig
+
+
+def create_strategy_correlation_matrix(strategy_performance: List[Dict[str, Any]]) -> go.Figure:
+    """
+    Create a correlation matrix visualization showing how strategies correlate with each other.
+    
+    Args:
+        strategy_performance: List of strategy performance dictionaries
+        
+    Returns:
+        Plotly figure with correlation matrix
+    """
+    if not strategy_performance or len(strategy_performance) < 2:
+        fig = go.Figure()
+        fig.update_layout(
+            title="Insufficient data for correlation analysis",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Extract daily returns if available
+    strategies_with_returns = []
+    strategy_names = []
+    
+    for strategy in strategy_performance:
+        daily_returns = strategy.get('daily_returns', {})
+        if daily_returns:
+            strategies_with_returns.append(daily_returns)
+            strategy_names.append(strategy['strategy_name'])
+    
+    if not strategies_with_returns:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No daily returns data available for correlation analysis",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Create DataFrame with daily returns for each strategy
+    returns_df = pd.DataFrame()
+    
+    for i, returns in enumerate(strategies_with_returns):
+        series = pd.Series(returns)
+        returns_df[strategy_names[i]] = series
+    
+    # Fill NaN values with 0 (for days where strategy didn't trade)
+    returns_df = returns_df.fillna(0)
+    
+    # Calculate correlation matrix
+    corr_matrix = returns_df.corr()
+    
+    # Create heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=corr_matrix.values,
+        x=corr_matrix.columns,
+        y=corr_matrix.index,
+        colorscale='RdBu_r',
+        zmid=0,
+        text=np.round(corr_matrix.values, 2),
+        texttemplate='%{text:.2f}',
+        textfont={"size": 10},
+        hoverongaps=False
+    ))
+    
+    fig.update_layout(
+        title="Strategy Correlation Matrix",
+        height=500,
+        template="plotly_white",
+        xaxis=dict(
+            title="Strategy",
+            tickangle=-45
+        ),
+        yaxis=dict(
+            title="Strategy"
+        ),
+        margin=dict(l=60, r=40, t=80, b=60)
+    )
+    
+    # Apply standard theme
+    apply_chart_theme(fig)
     
     return fig 
