@@ -14,6 +14,89 @@ import plotly.express as px
 from loguru import logger
 
 
+# Standard chart theme configuration
+CHART_THEME = {
+    "template": "plotly_white",
+    "font": {
+        "family": "Arial, sans-serif",
+        "size": 12,
+        "color": "#444"
+    },
+    "title_font": {
+        "family": "Arial, sans-serif",
+        "size": 16,
+        "color": "#333"
+    },
+    "legend": {
+        "orientation": "h",
+        "yanchor": "bottom",
+        "y": 1.02,
+        "xanchor": "right",
+        "x": 1
+    },
+    "colorway": [
+        "#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A", 
+        "#19D3F3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52"
+    ],
+    "grid": {
+        "showgrid": True,
+        "gridcolor": "#f0f0f0",
+        "zeroline": False
+    },
+    "margin": {
+        "l": 40, 
+        "r": 40, 
+        "t": 40, 
+        "b": 40
+    }
+}
+
+
+def apply_chart_theme(fig: go.Figure, title: Optional[str] = None) -> go.Figure:
+    """
+    Apply the standard chart theme to a figure.
+    
+    Args:
+        fig: The figure to apply the theme to
+        title: Optional title for the chart
+        
+    Returns:
+        The figure with theme applied
+    """
+    fig.update_layout(
+        template=CHART_THEME["template"],
+        font=CHART_THEME["font"],
+        margin=CHART_THEME["margin"],
+        colorway=CHART_THEME["colorway"],
+        legend=CHART_THEME["legend"]
+    )
+    
+    # Apply title if provided
+    if title:
+        fig.update_layout(
+            title={
+                "text": title,
+                "font": CHART_THEME["title_font"],
+                "x": 0.5,
+                "xanchor": "center"
+            }
+        )
+    
+    # Apply grid settings
+    fig.update_xaxes(
+        showgrid=CHART_THEME["grid"]["showgrid"],
+        gridcolor=CHART_THEME["grid"]["gridcolor"],
+        zeroline=CHART_THEME["grid"]["zeroline"]
+    )
+    fig.update_yaxes(
+        showgrid=CHART_THEME["grid"]["showgrid"],
+        gridcolor=CHART_THEME["grid"]["gridcolor"],
+        zeroline=CHART_THEME["grid"]["zeroline"]
+    )
+    
+    return fig
+
+
 def create_empty_chart(title: str) -> go.Figure:
     """
     Create an empty chart figure with a title.
@@ -25,20 +108,18 @@ def create_empty_chart(title: str) -> go.Figure:
         Plotly figure object
     """
     fig = go.Figure()
-    fig.update_layout(
-        title=title,
-        template="plotly_white",
-        showlegend=False,
-        xaxis=dict(showgrid=True, zeroline=False, showticklabels=True),
-        yaxis=dict(showgrid=True, zeroline=False, showticklabels=True),
-        margin=dict(l=40, r=40, t=40, b=40),
-    )
+    
+    # Apply standard theme
+    fig = apply_chart_theme(fig, title)
+    
+    # Add "no data" annotation
     fig.add_annotation(
         x=0.5, y=0.5,
         text="No data available",
         showarrow=False,
-        font=dict(size=16)
+        font=dict(size=16, color="#888888")
     )
+    
     return fig
 
 
@@ -48,76 +129,87 @@ def create_equity_curve_chart(equity_data: pd.DataFrame, time_range: str = "1m")
     
     Args:
         equity_data: DataFrame with equity history
-        time_range: Time range to display ("1d", "1w", "1m", "3m", "all")
+        time_range: Time range to display (e.g., "1d", "1w", "1m", "3m", "all")
         
     Returns:
         Plotly figure object
     """
+    # Handle empty data case
     if equity_data is None or equity_data.empty:
         return create_empty_chart("Equity Curve")
     
-    # Filter data based on time range
-    end_date = equity_data.index.max()
-    if time_range == "1d":
-        start_date = end_date - timedelta(days=1)
-    elif time_range == "1w":
-        start_date = end_date - timedelta(days=7)
-    elif time_range == "1m":
-        start_date = end_date - timedelta(days=30)
-    elif time_range == "3m":
-        start_date = end_date - timedelta(days=90)
-    else:  # "all"
-        start_date = equity_data.index.min()
+    # Filter data by time range
+    filtered_data = filter_data_by_time_range(equity_data, time_range)
     
-    # Filter data
-    filtered_data = equity_data.loc[start_date:end_date]
+    if filtered_data.empty:
+        return create_empty_chart("Equity Curve")
     
     # Create figure
     fig = go.Figure()
     
-    # Add equity line
+    # Add equity curve line
     fig.add_trace(go.Scatter(
         x=filtered_data.index,
-        y=filtered_data["equity"],
-        mode="lines",
-        line=dict(color="green", width=2),
-        name="Equity"
+        y=filtered_data['equity'],
+        mode='lines',
+        name='Equity',
+        line=dict(color="#636EFA", width=2)
     ))
     
-    # Add drawdown shading
-    if "drawdown_pct" in filtered_data.columns:
-        # Convert drawdown percentages to absolute values
-        drawdown_values = [
-            filtered_data["equity"].iloc[i] * (1 - filtered_data["drawdown_pct"].iloc[i] / 100)
-            for i in range(len(filtered_data))
-        ]
-        
-        fig.add_trace(go.Scatter(
-            x=filtered_data.index,
-            y=drawdown_values,
-            mode="none",
-            fill="tonexty",
-            fillcolor="rgba(255,0,0,0.1)",
-            name="Drawdown"
-        ))
+    # Add initial equity line
+    initial_equity = filtered_data['equity'].iloc[0]
+    fig.add_trace(go.Scatter(
+        x=[filtered_data.index[0], filtered_data.index[-1]],
+        y=[initial_equity, initial_equity],
+        mode='lines',
+        name='Initial Equity',
+        line=dict(color="#EF553B", width=1, dash='dash')
+    ))
     
-    # Update layout
-    fig.update_layout(
-        title="Equity Curve",
-        template="plotly_white",
-        showlegend=True,
-        xaxis=dict(showgrid=True, zeroline=False, title="Date"),
-        yaxis=dict(
-            showgrid=True, 
-            zeroline=False, 
-            title="Equity ($)",
-            rangemode="nonnegative"
-        ),
-        margin=dict(l=40, r=40, t=40, b=40),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    # Apply theme
+    fig = apply_chart_theme(fig, "Equity Curve")
+    
+    # Add custom hover template
+    fig.update_traces(
+        hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>Equity: $%{y:.2f}<extra></extra>"
     )
     
     return fig
+
+
+def filter_data_by_time_range(data: pd.DataFrame, time_range: str) -> pd.DataFrame:
+    """
+    Filter data by time range.
+    
+    Args:
+        data: DataFrame with datetime index
+        time_range: Time range to filter by (e.g., "1d", "1w", "1m", "3m", "all")
+        
+    Returns:
+        Filtered DataFrame
+    """
+    if time_range == "all" or data.empty:
+        return data
+    
+    now = datetime.now()
+    
+    if time_range == "1d":
+        start_date = now - timedelta(days=1)
+    elif time_range == "1w":
+        start_date = now - timedelta(weeks=1)
+    elif time_range == "1m":
+        start_date = now - timedelta(days=30)
+    elif time_range == "3m":
+        start_date = now - timedelta(days=90)
+    else:
+        # Default to 1 month if invalid range
+        start_date = now - timedelta(days=30)
+    
+    try:
+        return data[data.index >= start_date]
+    except Exception as e:
+        logger.error(f"Error filtering data by time range: {str(e)}")
+        return data
 
 
 def create_return_distribution_chart(returns_data: pd.DataFrame, time_range: str = "1m") -> go.Figure:

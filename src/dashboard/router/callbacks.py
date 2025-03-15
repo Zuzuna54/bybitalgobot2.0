@@ -6,41 +6,86 @@ It serves as a central registry for coordinating callback registration.
 """
 
 from typing import Dict, Any, Optional, Callable, List
+import traceback
 import dash
 from loguru import logger
 
+# Global data service reference
+data_service = None
 
-def register_all_callbacks(
-    app: dash.Dash,
-    get_system_status_func: Optional[Callable] = None,
-) -> None:
+
+def initialize_callbacks(app: dash.Dash, dashboard_data_service=None) -> None:
     """
-    Register all callbacks for the dashboard application.
+    Initialize all dashboard callbacks. This is the single entry point for callback registration.
     
     Args:
         app: The Dash application instance
-        get_system_status_func: Function to get system status
+        dashboard_data_service: The dashboard data service instance
     """
-    logger.debug("Registering all dashboard callbacks")
+    global data_service
+    data_service = dashboard_data_service
     
-    # Import and register component-specific callbacks
-    from src.dashboard.components.main_layout import register_layout_callbacks
-    from src.dashboard.components.trading_layout import register_trading_callbacks
-    from src.dashboard.components.performance_layout import register_performance_callbacks
-    from src.dashboard.components.settings_layout import register_settings_callbacks
+    # Register all callbacks
+    register_all_callbacks(app)
+    
+    logger.info("All dashboard callbacks registered successfully")
+
+
+def register_all_callbacks(app: dash.Dash) -> None:
+    """
+    Register all callbacks for the dashboard application.
+    This function consolidates all callback registrations in one place.
+    
+    Args:
+        app: The Dash application instance
+    """
+    logger.info("Beginning callback registrations for dashboard")
+    
+    # Helper function to log callback registration
+    def log_callback_registration(callback_name):
+        logger.info(f"Registering callback: {callback_name}")
+    
+    # Import layout callbacks
+    from src.dashboard.layouts.main_layout import register_tab_switching_callbacks
+    from src.dashboard.layouts.performance_layout import register_performance_callbacks
+    from src.dashboard.layouts.trading_layout import register_trading_callbacks
+    from src.dashboard.layouts.settings_layout import register_settings_callbacks
+    
+    # Import component callbacks
+    from src.dashboard.components.orderbook import register_orderbook_callbacks
+    from src.dashboard.components.strategy import register_strategy_callbacks
+    
+    # Import service callbacks
     from src.dashboard.services.notification_service import register_notification_callbacks
     
-    # Register component callbacks
-    register_layout_callbacks(app, get_system_status_func)
-    register_trading_callbacks(app)
-    register_performance_callbacks(app)
-    register_settings_callbacks(app)
-    register_notification_callbacks(app)
+    # Register layout callbacks
+    log_callback_registration("register_tab_switching_callbacks")
+    register_tab_switching_callbacks(app)
     
-    # Register system-level callbacks
+    log_callback_registration("register_performance_callbacks")
+    register_performance_callbacks(app)
+    
+    log_callback_registration("register_trading_callbacks")
+    register_trading_callbacks(app)
+    
+    log_callback_registration("register_settings_callbacks")
+    register_settings_callbacks(app)
+    
+    # Register component callbacks with data access functions
+    log_callback_registration("register_orderbook_callbacks")
+    register_orderbook_callbacks(app, get_orderbook_data)
+    
+    log_callback_registration("register_strategy_callbacks")
+    register_strategy_callbacks(app, get_strategy_data, get_strategy_manager())
+    
+    # Register system and service callbacks
+    log_callback_registration("register_system_callbacks")
     register_system_callbacks(app)
     
-    logger.debug("All dashboard callbacks registered")
+    log_callback_registration("register_notification_callbacks")
+    register_notification_callbacks(app)
+    
+    logger.info("All dashboard callbacks registered successfully")
 
 
 def register_system_callbacks(app: dash.Dash) -> None:
@@ -56,9 +101,10 @@ def register_system_callbacks(app: dash.Dash) -> None:
         [dash.Output("action-result-alert", "is_open"),
          dash.Output("add-notification-trigger", "data")],
         [dash.Input("system-action-result", "data")],
-        prevent_initial_call=True
+        prevent_initial_call=True,
+        allow_duplicate=True
     )
-    def process_system_action(action: Dict[str, Any]) -> List:
+    def process_system_action(action):
         """
         Process system action results.
         
@@ -71,16 +117,148 @@ def register_system_callbacks(app: dash.Dash) -> None:
         if not action:
             return False, None
         
-        success = action.get("success", False)
-        message = action.get("message", "")
-        action_type = action.get("action", "")
+        global data_service
+        success = False
+        notification = None
         
-        # Create notification
-        notification = {
-            "type": "success" if success else "error",
-            "message": message,
-            "header": f"System Action: {action_type}",
-            "duration": 5000
+        try:
+            if not data_service:
+                raise ValueError("Data service is not initialized")
+                
+            if action == "start":
+                success = data_service.start_trading()
+                message = "Trading system started" if success else "Failed to start trading system"
+                notification_type = "success" if success else "error"
+                notification = {
+                    "message": message,
+                    "type": notification_type,
+                    "header": "System Control"
+                }
+            elif action == "stop":
+                success = data_service.stop_trading()
+                message = "Trading system stopped" if success else "Failed to stop trading system"
+                notification_type = "success" if success else "error"
+                notification = {
+                    "message": message,
+                    "type": notification_type,
+                    "header": "System Control"
+                }
+            elif action == "pause":
+                success = data_service.pause_trading()
+                message = "Trading system paused" if success else "Failed to pause trading system"
+                notification_type = "success" if success else "error"
+                notification = {
+                    "message": message,
+                    "type": notification_type,
+                    "header": "System Control"
+                }
+            elif action == "reset":
+                success = data_service.reset_paper_trading()
+                message = "Paper trading reset successfully" if success else "Failed to reset paper trading"
+                notification_type = "success" if success else "error"
+                notification = {
+                    "message": message,
+                    "type": notification_type,
+                    "header": "System Control"
+                }
+        except Exception as e:
+            logger.error(f"Error during system action {action}: {str(e)}")
+            logger.error(traceback.format_exc())
+            notification = {
+                "message": f"Error during {action}: {str(e)}",
+                "type": "error",
+                "header": "System Error"
+            }
+            success = False
+            
+        return True, notification
+    
+    # Register debug notification test callback
+    @app.callback(
+        dash.Output("test-notification-trigger", "data"),
+        dash.Input("test-notification-button", "n_clicks"),
+        prevent_initial_call=True,
+        allow_duplicate=True
+    )
+    def trigger_test_notification(n_clicks):
+        """
+        Trigger a test notification for debugging purposes.
+        
+        Args:
+            n_clicks: Button click count
+            
+        Returns:
+            Notification data
+        """
+        if not n_clicks:
+            return None
+            
+        return {
+            "type": "info",
+            "message": "This is a test notification",
+            "header": "Test Notification",
+            "duration": 3000
         }
+
+
+# Data access wrapper functions for components
+def get_orderbook_data(symbol=None, depth=None):
+    """
+    Get orderbook data for components.
+    
+    Args:
+        symbol: The trading symbol
+        depth: The orderbook depth to retrieve
         
-        return success, notification 
+    Returns:
+        Orderbook data dictionary
+    """
+    global data_service
+    try:
+        if data_service:
+            return data_service.get_orderbook_data(symbol, depth)
+        else:
+            logger.warning("Data service not initialized in get_orderbook_data")
+            return {"error": "Data service not initialized"}
+    except Exception as e:
+        logger.error(f"Error in get_orderbook_data: {str(e)}")
+        logger.error(traceback.format_exc())
+        return {"error": str(e)}
+
+
+def get_strategy_data(strategy_id=None):
+    """
+    Get strategy data for components.
+    
+    Args:
+        strategy_id: Optional strategy ID to filter by
+        
+    Returns:
+        Strategy data dictionary
+    """
+    global data_service
+    try:
+        if data_service:
+            return data_service.get_strategy_data(strategy_id)
+        else:
+            logger.warning("Data service not initialized in get_strategy_data")
+            return {"error": "Data service not initialized"}
+    except Exception as e:
+        logger.error(f"Error in get_strategy_data: {str(e)}")
+        logger.error(traceback.format_exc())
+        return {"error": str(e)}
+
+
+def get_strategy_manager():
+    """
+    Get the strategy manager instance.
+    
+    Returns:
+        Strategy manager instance or None
+    """
+    global data_service
+    if data_service:
+        return data_service.strategy_manager
+    else:
+        logger.warning("Data service not initialized in get_strategy_manager")
+        return None 

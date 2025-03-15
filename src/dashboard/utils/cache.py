@@ -624,4 +624,239 @@ def precache(func: Callable, *args, **kwargs) -> Any:
     cache.set(cache_key, value)
     
     logger.debug(f"Pre-cached function call: {func.__name__}")
-    return value 
+    return value
+
+
+class CacheManager:
+    """
+    Centralized cache manager for the dashboard.
+    
+    This class provides methods for storing and retrieving cached data,
+    with support for automatic invalidation based on timestamps.
+    """
+    
+    def __init__(self):
+        """Initialize the cache manager."""
+        self._cache = {}
+        self._timestamps = {}
+        self._lock = threading.RLock()
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get a value from the cache.
+        
+        Args:
+            key: The cache key
+            default: Default value to return if key doesn't exist
+            
+        Returns:
+            Cached value or default
+        """
+        with self._lock:
+            return self._cache.get(key, default)
+    
+    def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> None:
+        """
+        Set a value in the cache with optional time-to-live.
+        
+        Args:
+            key: The cache key
+            value: Value to cache
+            ttl_seconds: Time-to-live in seconds (None means no expiration)
+        """
+        with self._lock:
+            self._cache[key] = value
+            if ttl_seconds is not None:
+                expiry_time = datetime.now() + timedelta(seconds=ttl_seconds)
+                self._timestamps[key] = expiry_time
+            else:
+                self._timestamps[key] = None
+    
+    def invalidate(self, key: str) -> None:
+        """
+        Invalidate a cached value.
+        
+        Args:
+            key: The cache key to invalidate
+        """
+        with self._lock:
+            if key in self._cache:
+                del self._cache[key]
+                self._timestamps.pop(key, None)
+    
+    def invalidate_pattern(self, pattern: str) -> None:
+        """
+        Invalidate all cache keys matching a pattern.
+        
+        Args:
+            pattern: String pattern to match (simple contains check)
+        """
+        with self._lock:
+            keys_to_remove = [k for k in self._cache.keys() if pattern in k]
+            for key in keys_to_remove:
+                del self._cache[key]
+                self._timestamps.pop(key, None)
+    
+    def invalidate_all(self) -> None:
+        """Invalidate all cached values."""
+        with self._lock:
+            self._cache.clear()
+            self._timestamps.clear()
+    
+    def is_valid(self, key: str) -> bool:
+        """
+        Check if a cache key is valid (exists and not expired).
+        
+        Args:
+            key: The cache key to check
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        with self._lock:
+            if key not in self._cache:
+                return False
+            
+            timestamp = self._timestamps.get(key)
+            if timestamp is None:
+                return True  # No expiration
+            
+            return datetime.now() < timestamp
+    
+    def clean_expired(self) -> int:
+        """
+        Remove all expired cache entries.
+        
+        Returns:
+            Number of entries removed
+        """
+        with self._lock:
+            now = datetime.now()
+            keys_to_remove = [
+                k for k, ts in self._timestamps.items()
+                if ts is not None and now > ts
+            ]
+            
+            for key in keys_to_remove:
+                del self._cache[key]
+                del self._timestamps[key]
+            
+            return len(keys_to_remove)
+
+
+# Create a global instance of the cache manager
+cache_manager = CacheManager()
+
+
+def cached(ttl_seconds: Optional[int] = 60, key_prefix: str = ""):
+    """
+    Decorator for caching function results.
+    
+    Args:
+        ttl_seconds: Time-to-live in seconds (None means no expiration)
+        key_prefix: Prefix for cache keys
+        
+    Returns:
+        Decorator function
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Generate a cache key based on function name, args, and kwargs
+            cache_key = f"{key_prefix}:{func.__name__}:{hash(str(args))}-{hash(str(kwargs))}"
+            
+            # Check if we have a valid cached result
+            if cache_manager.is_valid(cache_key):
+                return cache_manager.get(cache_key)
+            
+            # Call the original function
+            result = func(*args, **kwargs)
+            
+            # Cache the result
+            cache_manager.set(cache_key, result, ttl_seconds)
+            
+            return result
+        
+        # Add a method to invalidate this function's cache
+        def invalidate_cache(*args, **kwargs):
+            if args or kwargs:
+                # Invalidate specific cache entry
+                cache_key = f"{key_prefix}:{func.__name__}:{hash(str(args))}-{hash(str(kwargs))}"
+                cache_manager.invalidate(cache_key)
+            else:
+                # Invalidate all cache entries for this function
+                cache_manager.invalidate_pattern(f"{key_prefix}:{func.__name__}:")
+        
+        wrapper.invalidate_cache = invalidate_cache
+        
+        return wrapper
+    
+    return decorator
+
+
+def timed_cache(func=None, *, seconds: int = 60):
+    """
+    Simple time-based cache decorator.
+    Can be used as @timed_cache or @timed_cache(seconds=30)
+    
+    Args:
+        func: Function to decorate
+        seconds: Cache TTL in seconds
+        
+    Returns:
+        Decorated function
+    """
+    def decorator_timed_cache(func):
+        # Dictionary to store cached results and timestamps
+        cache_data = {}
+        
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Create a key from the function arguments
+            key = str(args) + str(kwargs)
+            
+            # Get the current timestamp
+            now = time.time()
+            
+            # Check if the result is in the cache and not expired
+            if key in cache_data:
+                timestamp, result = cache_data[key]
+                if now - timestamp < seconds:
+                    return result
+            
+            # Call the function and cache the result
+            result = func(*args, **kwargs)
+            cache_data[key] = (now, result)
+            
+            return result
+        
+        # Add a method to clear the cache
+        wrapper.clear_cache = lambda: cache_data.clear()
+        
+        return wrapper
+    
+    # Handle both @timed_cache and @timed_cache(seconds=30) syntax
+    if func is None:
+        return decorator_timed_cache
+    return decorator_timed_cache(func)
+
+
+def partial_update(original_data: Dict[str, Any], update_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Update only changed parts of the data.
+    
+    Args:
+        original_data: Original data dictionary
+        update_data: New data dictionary
+        
+    Returns:
+        Merged data dictionary with only updated values
+    """
+    result = original_data.copy()
+    
+    # Only update keys that have changed
+    for key, value in update_data.items():
+        if key not in original_data or original_data[key] != value:
+            result[key] = value
+    
+    return result 
