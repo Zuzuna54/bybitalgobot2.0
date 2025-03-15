@@ -115,9 +115,7 @@ def register_notification_callbacks(app: dash.Dash) -> None:
     
     @app.callback(
         Output("notification-container", "children"),
-        Input("notification-store", "data"),
-        prevent_initial_call=False,
-        allow_duplicate=True  # Allow duplicate callbacks for notification outputs
+        Input("notification-store", "data")
     )
     def update_notifications(notifications: List[Dict[str, Any]]) -> List[dbc.Toast]:
         """
@@ -152,9 +150,7 @@ def register_notification_callbacks(app: dash.Dash) -> None:
             Input({"type": "notification-toast", "index": ALL}, "n_dismiss"),
             Input("add-notification-trigger", "data")
         ],
-        State("notification-store", "data"),
-        prevent_initial_call=True,
-        allow_duplicate=True  # Allow duplicate callbacks for notification store
+        [State("notification-store", "data")]
     )
     def manage_notifications(
         dismissed: List[int], 

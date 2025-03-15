@@ -190,13 +190,12 @@ def create_settings_panel() -> html.Div:
     ])
 
 
-def register_settings_callbacks(app: dash.Dash, get_system_status_func=None) -> None:
+def register_settings_callbacks(app: dash.Dash) -> None:
     """
     Register callbacks for the settings panel.
     
     Args:
-        app: Dash application instance
-        get_system_status_func: Optional function to get system status
+        app: The Dash application instance
     """
     @app.callback(
         dash.Output("position-size-output", "children"),

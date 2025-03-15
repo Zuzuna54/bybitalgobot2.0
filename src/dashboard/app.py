@@ -7,13 +7,11 @@ This module initializes and runs the dashboard application.
 import os
 import json
 import traceback
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional
 import dash
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 from flask import Flask
-import numpy as np
-from datetime import datetime
 
 from loguru import logger
 
@@ -21,24 +19,13 @@ from loguru import logger
 logger.remove()
 logger.add(lambda msg: print(msg, flush=True), level="DEBUG")
 
-# Import the router modules
-try:
-    from src.dashboard.router.routes import register_routes
-    from src.dashboard.router.callbacks import register_all_callbacks
-except ImportError as e:
-    logger.warning(f"Router module import failed: {str(e)}")
-
-# Import specific components and layouts
-from src.dashboard.layouts.main_layout import create_dashboard_layout, register_tab_switching_callbacks
+from src.dashboard.layouts.main_layout import create_dashboard_layout
+from src.dashboard.layouts.main_layout import register_tab_switching_callbacks
+from src.dashboard.layouts.performance_layout import register_performance_callbacks
+from src.dashboard.layouts.trading_layout import register_trading_callbacks
+from src.dashboard.components.orderbook import register_orderbook_callbacks
+from src.dashboard.components.strategy import register_strategy_callbacks
 from src.dashboard.services.data_service import DashboardDataService
-
-# Import only the callbacks that aren't covered by the router
-from src.dashboard.components.performance_panel import register_performance_callbacks
-from src.dashboard.components.trading.callbacks import register_trading_callbacks
-from src.dashboard.components.orderbook.callbacks import register_orderbook_callbacks
-from src.dashboard.components.strategy.callbacks import register_strategy_callbacks
-from src.dashboard.layouts.settings_layout import register_settings_callbacks
-
 from src.dashboard.services.notification_service import register_notification_callbacks
 
 
@@ -105,43 +92,40 @@ def initialize_dashboard(
     # Set app title
     app.title = "Bybit Algorithmic Trading Dashboard"
     
-    # Store data accessor functions in app config for router to access
-    app.server.config['get_performance_data'] = get_performance_data
-    app.server.config['get_trade_data'] = get_trade_data
-    app.server.config['get_orderbook_data'] = get_orderbook_data
-    app.server.config['get_strategy_data'] = get_strategy_data
-    app.server.config['get_system_status'] = get_system_status
-    
     # Set app layout
     app.layout = create_dashboard_layout()
     
-    # Logger function to help debug callbacks
+    # Simplified logger function to help debug callbacks
     def log_callback_registration(callback_name):
         logger.info(f"Registering callback: {callback_name}")
     
     logger.info("Beginning callback registrations for dashboard")
     
-    # Use the router's callback registration system exclusively
-    try:
-        # Only proceed if the imports were successful
-        if 'register_routes' in globals() and 'register_all_callbacks' in globals():
-            logger.info("Using router module for callback registration")
-            # Register routes
-            register_routes(app)
-            
-            # Register all callbacks through the router
-            register_all_callbacks(app, get_system_status)
-            
-            logger.info("Successfully registered callbacks using router module")
-        else:
-            logger.error("Router modules not properly imported - dashboard may not function correctly")
-    except Exception as e:
-        # Log the error but don't fall back to direct registration to avoid duplicates
-        logger.error(f"Router callback registration failed: {str(e)}")
-        logger.error(traceback.format_exc())
-        logger.error("Dashboard callbacks failed to register - functionality will be limited")
+    # Register callbacks with logging
+    log_callback_registration("register_tab_switching_callbacks")
+    register_tab_switching_callbacks(app)
     
-    logger.info("Dashboard initialization completed")
+    log_callback_registration("register_performance_callbacks")
+    register_performance_callbacks(app)
+    
+    log_callback_registration("register_trading_callbacks")
+    register_trading_callbacks(app)
+    
+    log_callback_registration("register_orderbook_callbacks")
+    register_orderbook_callbacks(app, get_orderbook_data)
+    
+    log_callback_registration("register_strategy_callbacks")
+    register_strategy_callbacks(app, get_strategy_data, strategy_manager)
+    
+    # Register system control callbacks
+    log_callback_registration("register_system_callbacks")
+    register_system_callbacks(app)
+    
+    # Register notification callbacks
+    log_callback_registration("register_notification_callbacks")
+    register_notification_callbacks(app)
+    
+    logger.info("All dashboard callbacks registered successfully")
     
     return app
 
@@ -292,7 +276,73 @@ def register_system_callbacks(app):
         
         return "Simulate Long Operation", notification
     
-    # Risk parameters callback has been moved to settings_layout.py to avoid duplication
+    # Handle risk parameters save
+    @app.callback(
+        [dash.Output("risk-parameters-result", "data"),
+         dash.Output("risk-parameters-save-alert", "is_open"),
+         dash.Output("add-notification-trigger", "data", allow_duplicate=True)],
+        [dash.Input("save-risk-parameters-button", "n_clicks")],
+        [
+            dash.State("position-size-slider", "value"),
+            dash.State("max-drawdown-slider", "value"),
+            dash.State("default-leverage-input", "value"),
+            dash.State("max-positions-input", "value"),
+            dash.State("stop-loss-atr-input", "value"),
+            dash.State("risk-reward-input", "value"),
+            dash.State("trailing-stop-toggle", "value"),
+            dash.State("circuit-breaker-input", "value")
+        ],
+        prevent_initial_call=True
+    )
+    def save_risk_parameters(
+        n_clicks, position_size, max_drawdown, default_leverage, 
+        max_positions, stop_loss_atr, risk_reward, use_trailing_stop, circuit_breaker
+    ):
+        if not n_clicks:
+            return "", False, None
+        
+        notification = None
+        
+        try:
+            # Prepare risk parameters dictionary
+            risk_params = {
+                "position_size": position_size,
+                "max_drawdown": max_drawdown,
+                "default_leverage": default_leverage,
+                "max_positions": max_positions,
+                "stop_loss_atr": stop_loss_atr,
+                "risk_reward": risk_reward,
+                "use_trailing_stop": True if use_trailing_stop and use_trailing_stop[0] else False,
+                "circuit_breaker": circuit_breaker
+            }
+            
+            global data_service
+            success = data_service.set_risk_parameters(risk_params)
+            
+            if success:
+                notification = {
+                    "message": "Risk parameters saved successfully",
+                    "type": "success",
+                    "header": "Risk Management"
+                }
+            else:
+                notification = {
+                    "message": "Failed to save risk parameters",
+                    "type": "error",
+                    "header": "Risk Management"
+                }
+            
+            return "success" if success else "error", True, notification
+        
+        except Exception as e:
+            logger.error(f"Error saving risk parameters: {str(e)}")
+            logger.error(traceback.format_exc())
+            notification = {
+                "message": f"Error saving risk parameters: {str(e)}",
+                "type": "error",
+                "header": "Risk Management Error"
+            }
+            return "error", True, notification
 
 
 def run_dashboard(
@@ -414,53 +464,6 @@ if __name__ == "__main__":
     
     # Create a sample orderbook analyzer
     orderbook_analyzer = OrderBookAnalyzer()
-    
-    # Add sample data for common symbols to ensure visualization works
-    sample_symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT", "BNBUSDT"]
-    
-    for symbol in sample_symbols:
-        # Create sample orderbook data
-        if symbol == "BTCUSDT":
-            mid_price = 27500.0
-        elif symbol == "ETHUSDT":
-            mid_price = 1800.0
-        elif symbol == "SOLUSDT":
-            mid_price = 20.0
-        elif symbol == "DOGEUSDT":
-            mid_price = 0.07
-        elif symbol == "BNBUSDT":
-            mid_price = 300.0
-        else:
-            mid_price = 100.0
-        
-        # Create bid and ask prices around the mid price
-        spread = mid_price * 0.0005  # 0.05% spread
-        best_bid = mid_price - spread/2
-        best_ask = mid_price + spread/2
-        
-        # Create sample bids and asks
-        bids = []
-        asks = []
-        
-        # Generate sample bids (sorted by price descending)
-        for i in range(10):
-            price = best_bid * (1 - 0.0005 * i)
-            size = np.random.uniform(0.1, 2.0) if symbol == "BTCUSDT" else np.random.uniform(1, 20)
-            bids.append([str(price), str(size)])
-        
-        # Generate sample asks (sorted by price ascending)
-        for i in range(10):
-            price = best_ask * (1 + 0.0005 * i)
-            size = np.random.uniform(0.1, 2.0) if symbol == "BTCUSDT" else np.random.uniform(1, 20)
-            asks.append([str(price), str(size)])
-        
-        # Add to the analyzer
-        orderbook_data = {
-            "bids": bids,
-            "asks": asks,
-            "timestamp": datetime.now().timestamp()
-        }
-        orderbook_analyzer.update_orderbook(symbol, orderbook_data)
     
     logger.info("Starting dashboard in standalone mode (with sample data)")
     

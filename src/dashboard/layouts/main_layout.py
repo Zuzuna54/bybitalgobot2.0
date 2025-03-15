@@ -85,12 +85,16 @@ def create_tab_content() -> html.Div:
     Returns:
         Dash HTML Div containing the tab content container
     """
+    # Import here to avoid circular imports
+    from src.dashboard.layouts.performance_layout import create_performance_panel
+    
     logger.debug("Creating initial tab content containers")
     
-    # Only create empty containers that will be populated by callbacks
     return html.Div([
-        # Each tab content is initially hidden except performance tab
-        html.Div(id="performance-content", style={"display": "block"}),
+        # Performance tab is visible by default, so pre-load its content
+        html.Div(id="performance-content", 
+                 children=create_performance_panel(), 
+                 style={"display": "block"}),
         html.Div(id="trading-content", style={"display": "none"}),
         html.Div(id="orderbook-content", style={"display": "none"}),
         html.Div(id="strategy-content", style={"display": "none"}),
@@ -322,36 +326,7 @@ def register_layout_callbacks(app: dash.Dash, get_system_status_func) -> None:
         
         return status_data, status_badge, badge_class, system_info, system_display
     
-    # Note: Tab switching callbacks have been moved to register_tab_switching_callbacks
-    # to avoid duplicate callback registration
-        
-    # Log the final callback count to detect if all callbacks were registered
-    final_callback_count = len(app.callback_map) if hasattr(app, 'callback_map') else 0
-    new_callbacks = final_callback_count - initial_callback_count
-    logger.debug(f"Added {new_callbacks} layout callbacks. Total callbacks: {final_callback_count}")
-
-
-def register_tab_switching_callbacks(app: dash.Dash) -> None:
-    """
-    Register only the tab switching callbacks.
-    
-    Args:
-        app: The Dash application instance
-    """
-    logger.debug("Starting tab switching callback registration")
-    
-    # Tab switching callback - only updates the active-tab-store
-    @app.callback(
-        dash.Output("active-tab-store", "data"),
-        [dash.Input("tabs", "active_tab")],
-        prevent_initial_call=True
-    )
-    def update_active_tab(active_tab):
-        """Simply update the active tab store without side effects."""
-        logger.debug(f"Updating active tab store: {active_tab}")
-        return active_tab
-    
-    # Tab content visibility callback - separate from active tab store update
+    # Tab switching callback
     @app.callback(
         [
             dash.Output("performance-content", "style"),
@@ -359,11 +334,11 @@ def register_tab_switching_callbacks(app: dash.Dash) -> None:
             dash.Output("orderbook-content", "style"),
             dash.Output("strategy-content", "style"),
             dash.Output("settings-content", "style"),
+            dash.Output("active-tab-store", "data")
         ],
-        [dash.Input("active-tab-store", "data")],
-        prevent_initial_call=True
+        [dash.Input("tabs", "active_tab")]
     )
-    def switch_tab_visibility(active_tab):
+    def switch_tab(active_tab):
         """
         Switch between content tabs based on active tab.
         
@@ -371,9 +346,9 @@ def register_tab_switching_callbacks(app: dash.Dash) -> None:
             active_tab: The ID of the active tab
             
         Returns:
-            List of style dictionaries for each tab content
+            List of style dictionaries for each tab content and the active tab ID
         """
-        logger.debug(f"Tab visibility callback triggered with active_tab={active_tab}")
+        logger.debug(f"Tab switching callback triggered with active_tab={active_tab}")
         
         tab_styles = {
             "performance-content": {"display": "none"},
@@ -404,10 +379,11 @@ def register_tab_switching_callbacks(app: dash.Dash) -> None:
             tab_styles["trading-content"],
             tab_styles["orderbook-content"],
             tab_styles["strategy-content"],
-            tab_styles["settings-content"]
+            tab_styles["settings-content"],
+            active_tab
         ]
     
-    # Lazy-loading callbacks for tab content
+    # Dynamic content loading callbacks
     @app.callback(
         dash.Output("performance-content", "children"),
         [dash.Input("active-tab-store", "data")],
@@ -420,6 +396,7 @@ def register_tab_switching_callbacks(app: dash.Dash) -> None:
             logger.debug("Loading performance panel content")
             from src.dashboard.layouts.performance_layout import create_performance_panel
             return create_performance_panel()
+        logger.debug("Skipping performance content loading (not active tab)")
         return dash.no_update
     
     @app.callback(
@@ -432,7 +409,7 @@ def register_tab_switching_callbacks(app: dash.Dash) -> None:
         logger.debug(f"Trading content loading callback triggered with active_tab={active_tab}")
         if active_tab == "trading-tab":
             logger.debug("Loading trading panel content")
-            from src.dashboard.components.trading_panel import create_trading_panel
+            from src.dashboard.layouts.trading_layout import create_trading_panel
             return create_trading_panel()
         logger.debug("Skipping trading content loading (not active tab)")
         return dash.no_update
@@ -447,7 +424,6 @@ def register_tab_switching_callbacks(app: dash.Dash) -> None:
         logger.debug(f"Orderbook content loading callback triggered with active_tab={active_tab}")
         if active_tab == "orderbook-tab":
             logger.debug("Loading orderbook panel content")
-            from src.dashboard.components.orderbook_panel import create_orderbook_panel
             return create_orderbook_panel()
         logger.debug("Skipping orderbook content loading (not active tab)")
         return dash.no_update
@@ -462,7 +438,152 @@ def register_tab_switching_callbacks(app: dash.Dash) -> None:
         logger.debug(f"Strategy content loading callback triggered with active_tab={active_tab}")
         if active_tab == "strategy-tab":
             logger.debug("Loading strategy panel content")
-            from src.dashboard.components.strategy_panel import create_strategy_panel
+            return create_strategy_panel()
+        logger.debug("Skipping strategy content loading (not active tab)")
+        return dash.no_update
+    
+    @app.callback(
+        dash.Output("settings-content", "children"),
+        [dash.Input("active-tab-store", "data")],
+        prevent_initial_call=True
+    )
+    def load_settings_content(active_tab):
+        """Load settings panel content when the settings tab is active."""
+        logger.debug(f"Settings content loading callback triggered with active_tab={active_tab}")
+        if active_tab == "settings-tab":
+            logger.debug("Loading settings panel content")
+            from src.dashboard.layouts.settings_layout import create_settings_panel
+            return create_settings_panel()
+        logger.debug("Skipping settings content loading (not active tab)")
+        return dash.no_update
+        
+    # Log the final callback count to detect if all callbacks were registered
+    final_callback_count = len(app.callback_map) if hasattr(app, 'callback_map') else 0
+    new_callbacks = final_callback_count - initial_callback_count
+    logger.debug(f"Added {new_callbacks} layout callbacks. Total callbacks: {final_callback_count}")
+
+
+def register_tab_switching_callbacks(app: dash.Dash) -> None:
+    """
+    Register only the tab switching callbacks.
+    
+    Args:
+        app: The Dash application instance
+    """
+    logger.debug("Starting tab switching callback registration")
+    
+    # Tab switching callback
+    @app.callback(
+        [
+            dash.Output("performance-content", "style"),
+            dash.Output("trading-content", "style"),
+            dash.Output("orderbook-content", "style"),
+            dash.Output("strategy-content", "style"),
+            dash.Output("settings-content", "style"),
+            dash.Output("active-tab-store", "data")
+        ],
+        [dash.Input("tabs", "active_tab")]
+    )
+    def switch_tab(active_tab):
+        """
+        Switch between content tabs based on active tab.
+        
+        Args:
+            active_tab: The ID of the active tab
+            
+        Returns:
+            List of style dictionaries for each tab content and the active tab ID
+        """
+        logger.debug(f"Tab switching callback triggered with active_tab={active_tab}")
+        
+        tab_styles = {
+            "performance-content": {"display": "none"},
+            "trading-content": {"display": "none"},
+            "orderbook-content": {"display": "none"},
+            "strategy-content": {"display": "none"},
+            "settings-content": {"display": "none"}
+        }
+        
+        # Set the active tab to display
+        tab_map = {
+            "performance-tab": "performance-content",
+            "trading-tab": "trading-content",
+            "orderbook-tab": "orderbook-content",
+            "strategy-tab": "strategy-content",
+            "settings-tab": "settings-content"
+        }
+        
+        active_content = tab_map.get(active_tab)
+        if active_content:
+            tab_styles[active_content] = {"display": "block"}
+            logger.debug(f"Setting {active_content} to visible, others to hidden")
+        else:
+            logger.warning(f"Unknown tab ID: {active_tab}")
+        
+        return [
+            tab_styles["performance-content"],
+            tab_styles["trading-content"],
+            tab_styles["orderbook-content"],
+            tab_styles["strategy-content"],
+            tab_styles["settings-content"],
+            active_tab
+        ]
+    
+    # Dynamic content loading callbacks
+    @app.callback(
+        dash.Output("performance-content", "children"),
+        [dash.Input("active-tab-store", "data")],
+        prevent_initial_call=True
+    )
+    def load_performance_content(active_tab):
+        """Load performance panel content when the performance tab is active."""
+        logger.debug(f"Performance content loading callback triggered with active_tab={active_tab}")
+        if active_tab == "performance-tab":
+            logger.debug("Loading performance panel content")
+            from src.dashboard.layouts.performance_layout import create_performance_panel
+            return create_performance_panel()
+        logger.debug("Skipping performance content loading (not active tab)")
+        return dash.no_update
+    
+    @app.callback(
+        dash.Output("trading-content", "children"),
+        [dash.Input("active-tab-store", "data")],
+        prevent_initial_call=True
+    )
+    def load_trading_content(active_tab):
+        """Load trading panel content when the trading tab is active."""
+        logger.debug(f"Trading content loading callback triggered with active_tab={active_tab}")
+        if active_tab == "trading-tab":
+            logger.debug("Loading trading panel content")
+            from src.dashboard.layouts.trading_layout import create_trading_panel
+            return create_trading_panel()
+        logger.debug("Skipping trading content loading (not active tab)")
+        return dash.no_update
+    
+    @app.callback(
+        dash.Output("orderbook-content", "children"),
+        [dash.Input("active-tab-store", "data")],
+        prevent_initial_call=True
+    )
+    def load_orderbook_content(active_tab):
+        """Load orderbook panel content when the orderbook tab is active."""
+        logger.debug(f"Orderbook content loading callback triggered with active_tab={active_tab}")
+        if active_tab == "orderbook-tab":
+            logger.debug("Loading orderbook panel content")
+            return create_orderbook_panel()
+        logger.debug("Skipping orderbook content loading (not active tab)")
+        return dash.no_update
+    
+    @app.callback(
+        dash.Output("strategy-content", "children"),
+        [dash.Input("active-tab-store", "data")],
+        prevent_initial_call=True
+    )
+    def load_strategy_content(active_tab):
+        """Load strategy panel content when the strategy tab is active."""
+        logger.debug(f"Strategy content loading callback triggered with active_tab={active_tab}")
+        if active_tab == "strategy-tab":
+            logger.debug("Loading strategy panel content")
             return create_strategy_panel()
         logger.debug("Skipping strategy content loading (not active tab)")
         return dash.no_update
