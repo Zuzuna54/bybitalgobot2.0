@@ -70,6 +70,40 @@ def create_orderbook_panel() -> html.Div:
         ]),
         
         html.Br(),
+
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader("Order Book Heatmap"),
+                    dbc.CardBody([
+                        dcc.Graph(id="orderbook-heatmap")
+                    ])
+                ])
+            ], width=6),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader("Liquidity Profile"),
+                    dbc.CardBody([
+                        dcc.Graph(id="liquidity-profile-chart")
+                    ])
+                ])
+            ], width=6)
+        ]),
+        
+        html.Br(),
+        
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader("Order Book Imbalance Chart"),
+                    dbc.CardBody([
+                        dcc.Graph(id="orderbook-imbalance-chart")
+                    ])
+                ])
+            ], width=12)
+        ]),
+        
+        html.Br(),
         
         dbc.Row([
             dbc.Col([

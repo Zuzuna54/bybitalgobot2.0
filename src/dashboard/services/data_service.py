@@ -359,10 +359,10 @@ class DashboardDataService:
                 if self.trade_manager:
                     trades = []
                     
-                    # Get active trades
-                    if hasattr(self.trade_manager, 'get_active_trades'):
-                        active_trades = self.trade_manager.get_active_trades()
-                        if active_trades:
+            # Get active trades
+                if hasattr(self.trade_manager, 'get_active_trades'):
+                    active_trades = self.trade_manager.get_active_trades()
+                    if active_trades:
                             trades.extend(active_trades)
                     
                     # Get trade history

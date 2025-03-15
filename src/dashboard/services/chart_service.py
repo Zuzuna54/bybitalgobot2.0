@@ -987,8 +987,8 @@ def create_strategy_comparison_graph(
                 df_norm[metric] = 0.5
             else:
                 # Normalize between 0 and 1
-                if metric == 'max_drawdown':
-                    # Invert drawdown (lower is better)
+                if metric in metrics_to_invert:
+                    # For these metrics, lower is better (e.g., max_drawdown)
                     max_val = df[metric].max()
                     min_val = df[metric].min()
                     df_norm[metric] = 1 - ((df[metric] - min_val) / (max_val - min_val) if max_val > min_val else 0)
@@ -1499,4 +1499,812 @@ def create_win_loss_by_strategy_graph(trade_history: List[Dict[str, Any]]) -> go
         height=350
     )
     
+    return fig
+
+
+def create_orderbook_heatmap(
+    orderbook: Dict[str, Any],
+    levels: int = 30,
+    height: int = 500,
+    title: str = "Order Book Heatmap"
+) -> go.Figure:
+    """
+    Create a heatmap visualization of the order book using Plotly.
+    
+    Args:
+        orderbook: Order book data with bids and asks
+        levels: Number of price levels to display (max)
+        height: Height of the chart in pixels
+        title: Chart title
+        
+    Returns:
+        Plotly figure object
+    """
+    # Extract bids and asks
+    bids = orderbook.get("bids", [])
+    asks = orderbook.get("asks", [])
+    
+    if not bids or not asks:
+        return create_empty_chart("No Orderbook Data Available")
+    
+    # Convert to DataFrame if needed
+    if not isinstance(bids, pd.DataFrame):
+        bids_df = pd.DataFrame(bids, columns=["price", "size"])
+        asks_df = pd.DataFrame(asks, columns=["price", "size"])
+    else:
+        bids_df = bids.copy()
+        asks_df = asks.copy()
+    
+    # Ensure numeric data types
+    bids_df["price"] = pd.to_numeric(bids_df["price"])
+    bids_df["size"] = pd.to_numeric(bids_df["size"])
+    asks_df["price"] = pd.to_numeric(asks_df["price"])
+    asks_df["size"] = pd.to_numeric(asks_df["size"])
+    
+    # Limit to specified number of levels
+    bids_df = bids_df.head(levels)
+    asks_df = asks_df.head(levels)
+    
+    # Calculate normalized size for color intensity
+    max_bid_size = bids_df["size"].max()
+    max_ask_size = asks_df["size"].max()
+    bids_df["normalized_size"] = bids_df["size"] / max_bid_size if max_bid_size > 0 else 0
+    asks_df["normalized_size"] = asks_df["size"] / max_ask_size if max_ask_size > 0 else 0
+    
+    # Prepare for visualization
+    bid_prices = bids_df["price"].tolist()
+    bid_sizes = bids_df["size"].tolist()
+    ask_prices = asks_df["price"].tolist()
+    ask_sizes = asks_df["size"].tolist()
+    
+    # Create bid colorscale from light to dark green
+    bid_colors = [
+        f"rgba(0, {int(100 + 155 * intensity)}, 0, 0.8)" 
+        for intensity in bids_df["normalized_size"]
+    ]
+    
+    # Create ask colorscale from light to dark red
+    ask_colors = [
+        f"rgba({int(100 + 155 * intensity)}, 0, 0, 0.8)" 
+        for intensity in asks_df["normalized_size"]
+    ]
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add bid bars
+    fig.add_trace(go.Bar(
+        x=bid_sizes,
+        y=bid_prices,
+        orientation='h',
+        name='Bids',
+        marker_color=bid_colors,
+        marker_line_width=0,
+        opacity=0.8,
+    ))
+    
+    # Add ask bars
+    fig.add_trace(go.Bar(
+        x=ask_sizes,
+        y=ask_prices,
+        orientation='h',
+        name='Asks',
+        marker_color=ask_colors,
+        marker_line_width=0,
+        opacity=0.8,
+    ))
+    
+    # Get best bid and ask for mid price calculation
+    best_bid = bids_df["price"].iloc[0] if not bids_df.empty else None
+    best_ask = asks_df["price"].iloc[0] if not asks_df.empty else None
+    
+    # Add mid price line if available
+    if best_bid is not None and best_ask is not None:
+        mid_price = (best_bid + best_ask) / 2
+        fig.add_shape(
+            type="line",
+            x0=0,
+            y0=mid_price,
+            x1=max(bid_sizes + ask_sizes) if bid_sizes and ask_sizes else 1,
+            y1=mid_price,
+            line=dict(color="black", width=1, dash="dash"),
+        )
+        fig.add_annotation(
+            x=0,
+            y=mid_price,
+            text=f"Mid: {mid_price:.2f}",
+            showarrow=False,
+            xanchor="left",
+            bgcolor="rgba(255, 255, 255, 0.7)"
+        )
+    
+    # Apply chart theme
+    fig = apply_chart_theme(fig, title)
+    
+    # Update layout
+    fig.update_layout(
+        height=height,
+        barmode='overlay',
+        xaxis_title="Size",
+        yaxis_title="Price",
+        legend=dict(orientation="h", y=1.02, xanchor="right", x=1),
+        bargap=0.05,
+    )
+    
+    # Adjust yaxis to show prices in correct order
+    fig.update_yaxes(autorange="reversed" if asks_df.empty else True)
+    
+    return fig
+
+
+def create_orderbook_imbalance_chart(
+    orderbook: Dict[str, Any],
+    depth_levels: int = 10,
+    height: int = 300,
+    title: str = "Order Book Imbalance"
+) -> go.Figure:
+    """
+    Create a visualization of order book imbalance using Plotly.
+    
+    Args:
+        orderbook: Order book data with bids and asks
+        depth_levels: Number of price levels to consider
+        height: Height of the chart in pixels
+        title: Chart title
+        
+    Returns:
+        Plotly figure object
+    """
+    # Extract bids and asks
+    bids = orderbook.get("bids", [])
+    asks = orderbook.get("asks", [])
+    
+    if not bids or not asks:
+        return create_empty_chart("No Orderbook Data Available")
+    
+    # Limit to specified depth
+    bids = bids[:depth_levels] if depth_levels < len(bids) else bids
+    asks = asks[:depth_levels] if depth_levels < len(asks) else asks
+    
+    # Calculate total volume on each side
+    bid_volume = sum(float(bid[1]) for bid in bids)
+    ask_volume = sum(float(ask[1]) for ask in asks)
+    
+    # Calculate imbalance
+    total_volume = bid_volume + ask_volume
+    
+    if total_volume == 0:
+        imbalance = 0
+    else:
+        imbalance = (bid_volume - ask_volume) / total_volume
+    
+    # Calculate percentages for the chart
+    bid_pct = (bid_volume / total_volume * 100) if total_volume > 0 else 0
+    ask_pct = (ask_volume / total_volume * 100) if total_volume > 0 else 0
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add horizontal bars
+    fig.add_trace(go.Bar(
+        y=["Volume"],
+        x=[ask_pct],
+        name="Ask Volume",
+        orientation='h',
+        marker=dict(color="rgba(220, 20, 60, 0.7)"),  # Crimson for asks
+        hovertemplate="Ask Volume: %{x:.1f}%<extra></extra>"
+    ))
+    
+    fig.add_trace(go.Bar(
+        y=["Volume"],
+        x=[bid_pct],
+        name="Bid Volume",
+        orientation='h',
+        marker=dict(color="rgba(46, 139, 87, 0.7)"),  # Sea green for bids
+        hovertemplate="Bid Volume: %{x:.1f}%<extra></extra>"
+    ))
+    
+    # Apply chart theme
+    fig = apply_chart_theme(fig, title)
+    
+    # Calculate imbalance color (red for negative, green for positive)
+    imbalance_color = "rgb(46, 139, 87)" if imbalance > 0 else "rgb(220, 20, 60)"
+    
+    # Add imbalance annotation
+    fig.add_annotation(
+        x=0.5,
+        y=-0.3,
+        xref="paper",
+        yref="paper",
+        text=f"Imbalance: {imbalance:.3f}",
+        showarrow=False,
+        font=dict(size=14, color=imbalance_color),
+        bgcolor="rgba(255, 255, 255, 0.7)",
+        bordercolor=imbalance_color,
+        borderwidth=1,
+        borderpad=4
+    )
+    
+    # Update layout
+    fig.update_layout(
+        height=height,
+        barmode='stack',
+        xaxis=dict(
+            showgrid=True,
+            gridcolor="rgba(0, 0, 0, 0.1)",
+            tickvals=[0, 25, 50, 75, 100],
+            ticktext=["0%", "25%", "50%", "75%", "100%"],
+            range=[0, 100]
+        ),
+        yaxis=dict(
+            showticklabels=False
+        ),
+        legend=dict(orientation="h", y=1.1, xanchor="center", x=0.5),
+        margin=dict(l=20, r=20, t=40, b=80)
+    )
+    
+    # Add center line
+    fig.add_shape(
+        type="line",
+        x0=50, y0=0,
+        x1=50, y1=1,
+        xref="x", yref="paper",
+        line=dict(color="black", width=1, dash="dash")
+    )
+    
+    return fig
+
+
+def create_liquidity_profile_chart(
+    orderbook: Dict[str, Any],
+    price_range_pct: float = 2.0,
+    height: int = 500,
+    title: str = "Orderbook Liquidity Profile"
+) -> go.Figure:
+    """
+    Create a visualization of order book liquidity profile using Plotly.
+    
+    Args:
+        orderbook: Order book data with bids and asks
+        price_range_pct: Price range to display as percentage from mid price
+        height: Height of the chart in pixels
+        title: Chart title
+        
+    Returns:
+        Plotly figure object
+    """
+    # Extract bids and asks
+    bids = orderbook.get("bids", [])
+    asks = orderbook.get("asks", [])
+    
+    if not bids or not asks:
+        return create_empty_chart("No Orderbook Data Available")
+    
+    # Convert to DataFrame if needed
+    if not isinstance(bids, pd.DataFrame):
+        bids_df = pd.DataFrame(bids, columns=["price", "size"])
+        asks_df = pd.DataFrame(asks, columns=["price", "size"])
+    else:
+        bids_df = bids.copy()
+        asks_df = asks.copy()
+    
+    # Ensure numeric data types
+    bids_df["price"] = pd.to_numeric(bids_df["price"])
+    bids_df["size"] = pd.to_numeric(bids_df["size"])
+    asks_df["price"] = pd.to_numeric(asks_df["price"])
+    asks_df["size"] = pd.to_numeric(asks_df["size"])
+    
+    # Calculate mid price
+    best_bid = bids_df["price"].iloc[0] if not bids_df.empty else 0
+    best_ask = asks_df["price"].iloc[0] if not asks_df.empty else 0
+    mid_price = (best_bid + best_ask) / 2
+    
+    # Calculate price range
+    price_range = mid_price * price_range_pct / 100
+    min_price = mid_price - price_range
+    max_price = mid_price + price_range
+    
+    # Filter orders within price range
+    bids_in_range = bids_df[bids_df["price"] >= min_price]
+    asks_in_range = asks_df[asks_df["price"] <= max_price]
+    
+    # Group by price ranges for better visualization
+    num_bins = 20
+    bid_bins = np.linspace(min_price, mid_price, num_bins // 2 + 1)
+    ask_bins = np.linspace(mid_price, max_price, num_bins // 2 + 1)
+    
+    # Group bids by price bins
+    bids_in_range["bin"] = pd.cut(bids_in_range["price"], bins=bid_bins)
+    bid_liquidity = bids_in_range.groupby("bin")["size"].sum().reset_index()
+    bid_liquidity["mid_price"] = bid_liquidity["bin"].apply(lambda x: (x.left + x.right) / 2)
+    
+    # Group asks by price bins
+    asks_in_range["bin"] = pd.cut(asks_in_range["price"], bins=ask_bins)
+    ask_liquidity = asks_in_range.groupby("bin")["size"].sum().reset_index()
+    ask_liquidity["mid_price"] = ask_liquidity["bin"].apply(lambda x: (x.left + x.right) / 2)
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add bid liquidity
+    fig.add_trace(go.Bar(
+        x=bid_liquidity["mid_price"],
+        y=bid_liquidity["size"],
+        name="Bid Liquidity",
+        marker=dict(color="rgba(46, 139, 87, 0.7)"),  # Sea green for bids
+        hovertemplate="Price: %{x:.2f}<br>Size: %{y:.2f}<extra></extra>"
+    ))
+    
+    # Add ask liquidity
+    fig.add_trace(go.Bar(
+        x=ask_liquidity["mid_price"],
+        y=ask_liquidity["size"],
+        name="Ask Liquidity",
+        marker=dict(color="rgba(220, 20, 60, 0.7)"),  # Crimson for asks
+        hovertemplate="Price: %{x:.2f}<br>Size: %{y:.2f}<extra></extra>"
+    ))
+    
+    # Add mid price line
+    fig.add_shape(
+        type="line",
+        x0=mid_price, y0=0,
+        x1=mid_price, y1=1,
+        xref="x", yref="paper",
+        line=dict(color="black", width=1, dash="dash")
+    )
+    
+    fig.add_annotation(
+        x=mid_price,
+        y=1,
+        text=f"Mid: {mid_price:.2f}",
+        showarrow=False,
+        yanchor="bottom",
+        bgcolor="rgba(255, 255, 255, 0.7)"
+    )
+    
+    # Apply chart theme
+    fig = apply_chart_theme(fig, title)
+    
+    # Update layout
+    fig.update_layout(
+        height=height,
+        xaxis_title="Price",
+        yaxis_title="Liquidity (Size)",
+        bargap=0.01,
+        legend=dict(orientation="h", y=1.02, xanchor="right", x=1)
+    )
+    
+    return fig
+
+
+def create_daily_pnl_chart(
+    daily_pnl: Dict[str, float],
+    height: int = 500,
+    title: str = "Daily Profit/Loss"
+) -> go.Figure:
+    """
+    Create a daily profit/loss bar chart using Plotly.
+    
+    Args:
+        daily_pnl: Dictionary of daily profit/loss values (date -> pnl)
+        height: Height of the chart in pixels
+        title: Chart title
+        
+    Returns:
+        Plotly figure object with daily PnL chart
+    """
+    if not daily_pnl:
+        return create_empty_chart("No daily PnL data available")
+    
+    # Convert to DataFrame
+    daily_pnl_df = pd.DataFrame({
+        "date": list(daily_pnl.keys()), 
+        "pnl": list(daily_pnl.values())
+    })
+    daily_pnl_df["date"] = pd.to_datetime(daily_pnl_df["date"])
+    daily_pnl_df = daily_pnl_df.sort_values("date")
+    
+    # Create positive and negative PnL traces
+    positive_pnl = daily_pnl_df[daily_pnl_df["pnl"] >= 0]
+    negative_pnl = daily_pnl_df[daily_pnl_df["pnl"] < 0]
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add profit bars
+    if not positive_pnl.empty:
+        fig.add_trace(go.Bar(
+            x=positive_pnl["date"],
+            y=positive_pnl["pnl"],
+            name="Profit",
+            marker_color="rgba(50, 171, 96, 0.7)",
+            marker_line_color="rgba(50, 171, 96, 1.0)",
+            marker_line_width=1
+        ))
+    
+    # Add loss bars
+    if not negative_pnl.empty:
+        fig.add_trace(go.Bar(
+            x=negative_pnl["date"],
+            y=negative_pnl["pnl"],
+            name="Loss",
+            marker_color="rgba(220, 53, 69, 0.7)",
+            marker_line_color="rgba(220, 53, 69, 1.0)",
+            marker_line_width=1
+        ))
+    
+    # Add zero line
+    fig.add_shape(
+        type="line",
+        x0=daily_pnl_df["date"].min(),
+        y0=0,
+        x1=daily_pnl_df["date"].max(),
+        y1=0,
+        line=dict(color="black", width=1, dash="dash")
+    )
+    
+    # Apply chart theme
+    fig = apply_chart_theme(fig, title)
+    
+    # Update layout
+    fig.update_layout(
+        height=height,
+        xaxis_title="Date",
+        yaxis_title="Profit/Loss",
+        barmode="group",
+        bargap=0.15,
+        xaxis=dict(
+            type="date",
+            tickformat="%Y-%m-%d"
+        )
+    )
+    
+    return fig
+
+
+def create_profit_distribution_chart(
+    completed_trades: List[Dict[str, Any]],
+    bin_count: int = 20,
+    height: int = 500,
+    title: str = "Profit Distribution"
+) -> go.Figure:
+    """
+    Create a profit distribution histogram using Plotly.
+    
+    Args:
+        completed_trades: List of completed trades with realized PnL
+        bin_count: Number of histogram bins
+        height: Height of the chart in pixels
+        title: Chart title
+        
+    Returns:
+        Plotly figure object with profit distribution histogram
+    """
+    if not completed_trades:
+        return create_empty_chart("No trade data available")
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(completed_trades)
+    
+    if "realized_pnl" not in df.columns:
+        return create_empty_chart("Trade data missing realized PnL")
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add profit histogram
+    profit_trades = df[df["realized_pnl"] >= 0]["realized_pnl"]
+    if not profit_trades.empty:
+        fig.add_trace(go.Histogram(
+            x=profit_trades,
+            name="Profit",
+            marker_color="rgba(50, 171, 96, 0.7)",
+            marker_line_color="rgba(50, 171, 96, 1.0)",
+            marker_line_width=1,
+            nbinsx=bin_count // 2,
+            opacity=0.7
+        ))
+    
+    # Add loss histogram
+    loss_trades = df[df["realized_pnl"] < 0]["realized_pnl"]
+    if not loss_trades.empty:
+        fig.add_trace(go.Histogram(
+            x=loss_trades,
+            name="Loss",
+            marker_color="rgba(220, 53, 69, 0.7)",
+            marker_line_color="rgba(220, 53, 69, 1.0)",
+            marker_line_width=1,
+            nbinsx=bin_count // 2,
+            opacity=0.7
+        ))
+    
+    # Add zero line
+    fig.add_shape(
+        type="line",
+        x0=0,
+        y0=0,
+        x1=0,
+        y1=1,
+        xref="x",
+        yref="paper",
+        line=dict(color="black", width=2, dash="dash")
+    )
+    
+    # Compute summary statistics
+    mean_pnl = df["realized_pnl"].mean()
+    median_pnl = df["realized_pnl"].median()
+    
+    # Add annotations for mean and median
+    fig.add_annotation(
+        x=mean_pnl,
+        y=0.95,
+        text=f"Mean: {mean_pnl:.2f}",
+        showarrow=True,
+        arrowhead=1,
+        ax=0,
+        ay=-40,
+        bgcolor="rgba(255, 255, 255, 0.8)",
+        bordercolor="gray",
+        borderwidth=1,
+        font=dict(color="green" if mean_pnl >= 0 else "red")
+    )
+    
+    fig.add_annotation(
+        x=median_pnl,
+        y=0.85,
+        text=f"Median: {median_pnl:.2f}",
+        showarrow=True,
+        arrowhead=1,
+        ax=0,
+        ay=-40,
+        bgcolor="rgba(255, 255, 255, 0.8)",
+        bordercolor="gray",
+        borderwidth=1,
+        font=dict(color="green" if median_pnl >= 0 else "red")
+    )
+    
+    # Apply chart theme
+    fig = apply_chart_theme(fig, title)
+    
+    # Update layout
+    fig.update_layout(
+        height=height,
+        xaxis_title="Profit/Loss",
+        yaxis_title="Frequency",
+        bargap=0.05,
+        barmode="overlay"
+    )
+    
+    return fig
+
+
+def create_monthly_returns_heatmap(
+    returns_data: List[Dict[str, Any]],
+    height: int = 500, 
+    title: str = "Monthly Returns"
+) -> go.Figure:
+    """
+    Create a heatmap visualization of monthly returns.
+    
+    Args:
+        returns_data: List of returns data with timestamp and return value
+        height: Height of the chart in pixels
+        title: Chart title
+        
+    Returns:
+        Plotly figure object with monthly returns heatmap
+    """
+    if not returns_data:
+        return create_empty_chart("No returns data available")
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(returns_data)
+    
+    # Ensure timestamp column exists
+    if "timestamp" not in df.columns or "return_pct" not in df.columns:
+        return create_empty_chart("Returns data missing timestamp or return_pct")
+    
+    # Convert timestamp to datetime
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    
+    # Extract year and month
+    df["year"] = df["timestamp"].dt.year
+    df["month"] = df["timestamp"].dt.month
+    
+    # Calculate monthly returns
+    monthly_returns = df.groupby(["year", "month"])["return_pct"].sum().reset_index()
+    
+    # Create 2D array for heatmap
+    years = sorted(monthly_returns["year"].unique())
+    months = list(range(1, 13))
+    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    
+    # Initialize data array with NaN
+    data = np.full((len(years), 12), np.nan)
+    
+    # Fill data array with returns
+    for _, row in monthly_returns.iterrows():
+        year_idx = years.index(row["year"])
+        month_idx = row["month"] - 1  # Adjust to 0-indexed
+        data[year_idx, month_idx] = row["return_pct"]
+    
+    # Create a custom colorscale (green for positive, red for negative)
+    max_abs_return = np.nanmax(np.abs(data))
+    if max_abs_return == 0:
+        max_abs_return = 1.0  # Avoid division by zero
+    
+    # Create custom colorscale
+    colorscale = [
+        [0, "rgba(220, 53, 69, 1.0)"],                   # Dark red for extreme negative
+        [0.4, "rgba(220, 53, 69, 0.3)"],                  # Light red for mild negative
+        [0.5, "rgba(255, 255, 255, 1.0)"],                # White for zero
+        [0.6, "rgba(50, 171, 96, 0.3)"],                  # Light green for mild positive
+        [1.0, "rgba(50, 171, 96, 1.0)"]                   # Dark green for extreme positive
+    ]
+    
+    # Create heatmap
+    fig = go.Figure()
+    
+    # Add heatmap trace
+    fig.add_trace(go.Heatmap(
+        z=data,
+        x=month_names,
+        y=years,
+        colorscale=colorscale,
+        zmid=0,  # Center colorscale at 0
+        text=np.round(data, 2),
+        hoverinfo="text+x+y",
+        hovertemplate="Year: %{y}<br>Month: %{x}<br>Return: %{text:.2f}%<extra></extra>",
+        showscale=True,
+        colorbar=dict(
+            title="Return (%)",
+            titleside="right",
+            ticks="outside"
+        )
+    ))
+    
+    # Calculate yearly totals
+    yearly_totals = np.nansum(data, axis=1)
+    
+    # Add annotations for yearly totals
+    for i, year in enumerate(years):
+        total = yearly_totals[i]
+        color = "green" if total >= 0 else "red"
+        
+        fig.add_annotation(
+            x=12.5,  # Position after December
+            y=i,
+            text=f"{total:.2f}%",
+            showarrow=False,
+            font=dict(color=color, size=10),
+            xanchor="left"
+        )
+    
+    # Add "Year Total" annotation
+    fig.add_annotation(
+        x=12.5,
+        y=len(years) - 0.5,
+        text="Year<br>Total",
+        showarrow=False,
+        font=dict(size=10),
+        xanchor="left",
+        yanchor="top"
+    )
+    
+    # Apply chart theme
+    fig = apply_chart_theme(fig, title)
+    
+    # Update layout
+    fig.update_layout(
+        height=height,
+        xaxis=dict(
+            title="Month",
+            side="top",  # Show month labels on top
+            ticks=""
+        ),
+        yaxis=dict(
+            title="Year",
+            autorange="reversed"  # Show most recent years on top
+        ),
+        margin=dict(l=40, r=80, t=80, b=40)
+    )
+    
     return fig 
+
+
+def create_performance_dashboard(
+    equity_history: List[Dict[str, Any]],
+    completed_trades: List[Dict[str, Any]],
+    daily_pnl: Dict[str, float],
+    returns_data: pd.DataFrame = None,
+    include_strategy_comparison: bool = True,
+    time_range: str = "all"
+) -> Dict[str, go.Figure]:
+    """
+    Create a complete set of performance dashboard charts using Plotly.
+    
+    This function generates a set of standard performance visualization charts
+    for algorithmic trading systems, including equity curve, drawdown, profit
+    distribution, daily PnL, and optionally strategy comparison.
+    
+    Args:
+        equity_history: List of equity history points with timestamps and values
+        completed_trades: List of completed trades with realized PnL information
+        daily_pnl: Dictionary mapping dates to daily profit/loss values
+        returns_data: Optional DataFrame with returns data for returns-based charts
+        include_strategy_comparison: Whether to include strategy comparison chart
+        time_range: Time range to display for time-series charts (e.g., "1d", "1w", "1m", "3m", "all")
+        
+    Returns:
+        Dictionary mapping chart types to Plotly figure objects
+    """
+    # Initialize result dictionary
+    dashboard_charts = {}
+    
+    # Convert equity history to DataFrame format for the chart functions
+    if equity_history and isinstance(equity_history, list):
+        try:
+            equity_df = pd.DataFrame(equity_history)
+            equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"])
+            if "total_equity" in equity_df.columns:
+                equity_df.rename(columns={"total_equity": "equity"}, inplace=True)
+            equity_df.set_index("timestamp", inplace=True)
+        except Exception as e:
+            logger.error(f"Error converting equity history to DataFrame: {str(e)}")
+            equity_df = None
+    else:
+        equity_df = None
+    
+    # Generate equity curve chart
+    try:
+        equity_chart = create_equity_curve_chart(equity_df, time_range)
+        dashboard_charts["equity_curve"] = equity_chart
+    except Exception as e:
+        logger.error(f"Error creating equity curve chart: {str(e)}")
+        dashboard_charts["equity_curve"] = create_empty_chart("Equity Curve - Error")
+    
+    # Generate drawdown chart
+    try:
+        drawdown_chart = create_drawdown_chart(equity_df, time_range)
+        dashboard_charts["drawdown"] = drawdown_chart
+    except Exception as e:
+        logger.error(f"Error creating drawdown chart: {str(e)}")
+        dashboard_charts["drawdown"] = create_empty_chart("Drawdown Chart - Error")
+    
+    # Generate profit distribution chart
+    try:
+        profit_dist_chart = create_profit_distribution_chart(completed_trades)
+        dashboard_charts["profit_distribution"] = profit_dist_chart
+    except Exception as e:
+        logger.error(f"Error creating profit distribution chart: {str(e)}")
+        dashboard_charts["profit_distribution"] = create_empty_chart("Profit Distribution - Error")
+    
+    # Generate daily PnL chart
+    try:
+        daily_pnl_chart = create_daily_pnl_chart(daily_pnl)
+        dashboard_charts["daily_pnl"] = daily_pnl_chart
+    except Exception as e:
+        logger.error(f"Error creating daily PnL chart: {str(e)}")
+        dashboard_charts["daily_pnl"] = create_empty_chart("Daily PnL - Error")
+    
+    # Generate monthly returns heatmap if returns data is provided
+    if returns_data is not None:
+        try:
+            monthly_returns_chart = create_monthly_returns_heatmap(returns_data)
+            dashboard_charts["monthly_returns"] = monthly_returns_chart
+        except Exception as e:
+            logger.error(f"Error creating monthly returns heatmap: {str(e)}")
+            dashboard_charts["monthly_returns"] = create_empty_chart("Monthly Returns - Error")
+    
+    # Generate strategy comparison chart if requested and multiple strategies exist
+    if include_strategy_comparison and completed_trades:
+        try:
+            df = pd.DataFrame(completed_trades)
+            if "strategy_name" in df.columns and len(df["strategy_name"].unique()) > 1:
+                strategy_comp_chart = create_strategy_comparison_graph(completed_trades)
+                dashboard_charts["strategy_comparison"] = strategy_comp_chart
+        except Exception as e:
+            logger.error(f"Error creating strategy comparison chart: {str(e)}")
+            dashboard_charts["strategy_comparison"] = create_empty_chart("Strategy Comparison - Error")
+    
+    return dashboard_charts

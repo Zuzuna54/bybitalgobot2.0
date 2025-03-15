@@ -23,7 +23,12 @@ from src.dashboard.components.orderbook.data_processing import (
     identify_support_resistance_levels,
     generate_execution_recommendations
 )
-from src.dashboard.services.chart_service import create_orderbook_depth_chart
+from src.dashboard.services.chart_service import (
+    create_orderbook_depth_chart,
+    create_orderbook_heatmap,
+    create_orderbook_imbalance_chart,
+    create_liquidity_profile_chart
+)
 
 
 def register_orderbook_callbacks(app: dash.Dash, get_orderbook_data_func: Callable) -> None:
@@ -201,7 +206,10 @@ def register_orderbook_callbacks(app: dash.Dash, get_orderbook_data_func: Callab
             Output("liquidity-ratio-indicator", "children"),
             Output("orderbook-depth-graph", "figure"),
             Output("support-resistance-content", "children"),
-            Output("execution-recommendations-content", "children")
+            Output("execution-recommendations-content", "children"),
+            Output("orderbook-heatmap", "figure"),
+            Output("orderbook-imbalance-chart", "figure"),
+            Output("liquidity-profile-chart", "figure")
         ],
         [
             Input("orderbook-update-interval", "n_intervals"),
@@ -210,118 +218,129 @@ def register_orderbook_callbacks(app: dash.Dash, get_orderbook_data_func: Callab
         [State("risk-tolerance-slider", "value")]
     )
     def update_orderbook_panel(n_intervals, selected_symbol, risk_tolerance=50):
-        """Update all orderbook panel components based on selected symbol."""
-        # Get order book data
-        orderbook_data = get_orderbook_data_func()
+        """Update the orderbook panel components."""
+        # Default return values
+        empty_fig = go.Figure()
+        empty_fig.update_layout(
+            title="No data available",
+            annotations=[
+                dict(
+                    text="Select a trading symbol to view orderbook data",
+                    showarrow=False,
+                    xref="paper",
+                    yref="paper",
+                    x=0.5,
+                    y=0.5
+                )
+            ]
+        )
         
-        # Normalize risk tolerance from slider (0-100) to 0.0-1.0 scale
-        risk_tolerance_normalized = risk_tolerance / 100.0 if risk_tolerance is not None else 0.5
+        # Format risk tolerance as percentage (0-100%)
+        risk_pct = risk_tolerance / 100.0 if risk_tolerance is not None else 0.5
         
-        if not orderbook_data or 'symbols' not in orderbook_data or not selected_symbol:
-            # Return empty/default components if no data
-            empty_fig = go.Figure()
-            empty_fig.update_layout(template="plotly_white")
+        if not selected_symbol:
             return (
-                html.Div("Select a symbol", className="text-center text-muted"),
-                html.Div("Select a symbol", className="text-center text-muted"),
-                empty_fig,
-                html.Div("Select a symbol", className="text-center text-muted"),
-                html.Div([
-                    html.P("Set your risk tolerance:"),
-                    dcc.Slider(
-                        id="risk-tolerance-slider",
-                        min=0,
-                        max=100,
-                        step=5,
-                        value=50,
-                        marks={
-                            0: "Low Risk",
-                            50: "Balanced",
-                            100: "High Risk"
-                        }
-                    ),
-                    html.P("Select a symbol to view recommendations", className="mt-3 text-center text-muted")
-                ])
+                html.Div("Select a symbol"),  # imbalance indicator
+                html.Div("Select a symbol"),  # liquidity ratio
+                empty_fig,                    # depth graph
+                html.Div("Select a symbol"),  # support/resistance
+                html.Div("Select a symbol"),  # execution recommendations
+                empty_fig,                    # heatmap
+                empty_fig,                    # imbalance chart
+                empty_fig                     # liquidity profile
             )
         
-        # Get data for selected symbol
-        symbol_data = orderbook_data['symbols'].get(selected_symbol, {})
-        
-        if not symbol_data or 'orderbook' not in symbol_data:
-            # Return empty/default components if no data for selected symbol
-            empty_fig = go.Figure()
-            empty_fig.update_layout(template="plotly_white")
-            return (
-                html.Div(f"No orderbook data for {selected_symbol}", className="text-center text-danger"),
-                html.Div(f"No orderbook data for {selected_symbol}", className="text-center text-danger"),
-                empty_fig,
-                html.Div(f"No orderbook data for {selected_symbol}", className="text-center text-danger"),
-                html.Div([
-                    html.P("Set your risk tolerance:"),
-                    dcc.Slider(
-                        id="risk-tolerance-slider",
-                        min=0,
-                        max=100,
-                        step=5,
-                        value=50,
-                        marks={
-                            0: "Low Risk",
-                            50: "Balanced",
-                            100: "High Risk"
-                        }
-                    ),
-                    html.P(f"No data available for {selected_symbol}", className="mt-3 text-center text-danger")
-                ])
-            )
-        
-        # Extract data
-        orderbook = symbol_data['orderbook']
-        liquidity = symbol_data.get('liquidity', {})
-        imbalance = symbol_data.get('imbalance', {})
-        support_levels = symbol_data.get('support_levels', [])
-        resistance_levels = symbol_data.get('resistance_levels', [])
-        
-        # Calculate metrics if not already available
-        if not imbalance:
+        try:
+            # Get orderbook data for the selected symbol
+            orderbook_data = get_orderbook_data_func(selected_symbol)
+            
+            if not orderbook_data or "orderbook" not in orderbook_data:
+                return (
+                    html.Div("No orderbook data available"),
+                    html.Div("No orderbook data available"),
+                    empty_fig,
+                    html.Div("No orderbook data available"),
+                    html.Div("No orderbook data available"),
+                    empty_fig,
+                    empty_fig,
+                    empty_fig
+                )
+            
+            # Get the orderbook
+            orderbook = orderbook_data["orderbook"]
+            
+            # Calculate metrics and identify levels
             imbalance = calculate_orderbook_imbalance(orderbook)
-        
-        if not liquidity:
-            liquidity = calculate_liquidity_ratio(orderbook)
-        
-        if not support_levels or not resistance_levels:
-            levels = identify_support_resistance_levels(orderbook)
-            support_levels = levels['support_levels']
-            resistance_levels = levels['resistance_levels']
-        
-        # Generate execution recommendations based on orderbook analysis and risk tolerance
-        recommendations = generate_execution_recommendations(
-            orderbook, 
-            imbalance, 
-            liquidity, 
-            support_levels, 
-            resistance_levels,
-            risk_tolerance=risk_tolerance_normalized
-        )
-        
-        # Render components
-        imbalance_indicator = render_imbalance_indicator(imbalance)
-        liquidity_ratio_indicator = render_liquidity_ratio(liquidity)
-        depth_graph = create_orderbook_depth_chart(
-            orderbook, 
-            depth=20,
-            support_levels=support_levels, 
-            resistance_levels=resistance_levels
-        )
-        support_resistance_content = render_support_resistance_levels(support_levels, resistance_levels)
-        execution_recommendations_content = render_execution_recommendations(recommendations, risk_tolerance_normalized)
-        
-        return (
-            imbalance_indicator,
-            liquidity_ratio_indicator,
-            depth_graph,
-            support_resistance_content,
-            execution_recommendations_content
-        )
+            liquidity_ratio = calculate_liquidity_ratio(orderbook)
+            sr_levels = identify_support_resistance_levels(orderbook, orderbook_data.get("trades", []))
+            
+            # Generate recommendations based on analysis
+            recommendations = generate_execution_recommendations(
+                orderbook, 
+                sr_levels, 
+                imbalance, 
+                liquidity_ratio,
+                risk_tolerance=risk_pct
+            )
+            
+            # Create the depth chart
+            depth_chart = create_orderbook_depth_chart(
+                orderbook,
+                sr_levels=sr_levels
+            )
+            
+            # Create additional visualizations
+            heatmap = create_orderbook_heatmap(orderbook)
+            imbalance_chart = create_orderbook_imbalance_chart(orderbook)
+            liquidity_chart = create_liquidity_profile_chart(orderbook)
+            
+            # Render the components
+            imbalance_indicator = render_imbalance_indicator(imbalance)
+            liquidity_indicator = render_liquidity_ratio(liquidity_ratio)
+            sr_content = render_support_resistance_levels(sr_levels)
+            recommendations_content = render_execution_recommendations(recommendations, risk_pct)
+            
+            return (
+                imbalance_indicator,
+                liquidity_indicator,
+                depth_chart,
+                sr_content,
+                recommendations_content,
+                heatmap,
+                imbalance_chart,
+                liquidity_chart
+            )
+            
+        except Exception as e:
+            import traceback
+            print(f"Error updating orderbook panel: {str(e)}")
+            print(traceback.format_exc())
+            
+            error_fig = go.Figure()
+            error_fig.update_layout(
+                title="Error loading orderbook data",
+                annotations=[
+                    dict(
+                        text=f"Error: {str(e)}",
+                        showarrow=False,
+                        xref="paper",
+                        yref="paper",
+                        x=0.5,
+                        y=0.5
+                    )
+                ]
+            )
+            
+            return (
+                html.Div(f"Error: {str(e)}"),
+                html.Div(f"Error: {str(e)}"),
+                error_fig,
+                html.Div(f"Error: {str(e)}"),
+                html.Div(f"Error: {str(e)}"),
+                error_fig,
+                error_fig,
+                error_fig
+            )
     
     @app.callback(
         Output("order-size-input", "value"),
