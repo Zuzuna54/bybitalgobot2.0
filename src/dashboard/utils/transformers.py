@@ -592,6 +592,140 @@ class DataTransformer:
                 "positions": []
             }
 
+    @staticmethod
+    @cached(ttl_seconds=60, key_prefix="transform_market_data")
+    def transform_market_data(market_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Transform market data for dashboard visualizations.
+        
+        Args:
+            market_data: Raw market data dictionary
+            
+        Returns:
+            Dictionary with transformed market data metrics
+        """
+        if not market_data:
+            return {
+                "symbol": "Unknown",
+                "last_price": 0.0,
+                "bid": 0.0,
+                "ask": 0.0,
+                "spread": 0.0,
+                "volume_24h": 0.0,
+                "high_24h": 0.0,
+                "low_24h": 0.0,
+                "change_24h": 0.0,
+                "change_pct_24h": 0.0,
+                "updated_at": None,
+                "indicators": {},
+                "candles": pd.DataFrame()
+            }
+        
+        try:
+            # Extract basic market data
+            symbol = market_data.get("symbol", "Unknown")
+            last_price = market_data.get("last_price", 0.0)
+            bid = market_data.get("bid", 0.0)
+            ask = market_data.get("ask", 0.0)
+            
+            # Calculate derived metrics
+            spread = ask - bid if ask > 0 and bid > 0 else 0.0
+            spread_pct = (spread / bid) * 100 if bid > 0 else 0.0
+            
+            # Get 24h statistics
+            volume_24h = market_data.get("volume_24h", 0.0)
+            high_24h = market_data.get("high_24h", 0.0)
+            low_24h = market_data.get("low_24h", 0.0)
+            
+            # Calculate price changes
+            open_24h = market_data.get("open_24h", 0.0)
+            if open_24h > 0:
+                change_24h = last_price - open_24h
+                change_pct_24h = (change_24h / open_24h) * 100
+            else:
+                change_24h = 0.0
+                change_pct_24h = 0.0
+            
+            # Extract timestamp
+            updated_at = market_data.get("timestamp")
+            if updated_at is None:
+                updated_at = datetime.now()
+            elif isinstance(updated_at, (int, float)):
+                # Convert unix timestamp to datetime
+                updated_at = datetime.fromtimestamp(updated_at)
+            
+            # Process indicators if available
+            indicators = market_data.get("indicators", {})
+            # Ensure indicators are in the right format
+            processed_indicators = {}
+            for name, value in indicators.items():
+                if isinstance(value, dict):
+                    processed_indicators[name] = value
+                else:
+                    processed_indicators[name] = {
+                        "value": value,
+                        "type": "price" if "price" in name.lower() else "indicator"
+                    }
+            
+            # Process candle data if available
+            candles = market_data.get("candles", [])
+            candle_df = pd.DataFrame()
+            
+            if candles and isinstance(candles, list) and len(candles) > 0:
+                # Convert to DataFrame
+                if isinstance(candles[0], list):
+                    # Format [timestamp, open, high, low, close, volume]
+                    columns = ["timestamp", "open", "high", "low", "close", "volume"]
+                    candle_df = pd.DataFrame(candles, columns=columns[:len(candles[0])])
+                elif isinstance(candles[0], dict):
+                    # Dictionary format
+                    candle_df = pd.DataFrame(candles)
+                
+                # Ensure timestamp is in datetime format
+                if "timestamp" in candle_df.columns:
+                    if pd.api.types.is_numeric_dtype(candle_df["timestamp"]):
+                        candle_df["timestamp"] = pd.to_datetime(candle_df["timestamp"], unit="ms")
+                    else:
+                        try:
+                            candle_df["timestamp"] = pd.to_datetime(candle_df["timestamp"])
+                        except:
+                            logger.warning("Could not convert candle timestamps to datetime")
+            
+            return {
+                "symbol": symbol,
+                "last_price": last_price,
+                "bid": bid,
+                "ask": ask,
+                "spread": spread,
+                "spread_pct": spread_pct,
+                "volume_24h": volume_24h,
+                "high_24h": high_24h,
+                "low_24h": low_24h,
+                "change_24h": change_24h,
+                "change_pct_24h": change_pct_24h,
+                "updated_at": updated_at,
+                "indicators": processed_indicators,
+                "candles": candle_df
+            }
+        
+        except Exception as e:
+            logger.error(f"Error transforming market data: {str(e)}")
+            return {
+                "symbol": market_data.get("symbol", "Unknown"),
+                "last_price": 0.0,
+                "bid": 0.0,
+                "ask": 0.0,
+                "spread": 0.0,
+                "volume_24h": 0.0,
+                "high_24h": 0.0,
+                "low_24h": 0.0,
+                "change_24h": 0.0,
+                "change_pct_24h": 0.0,
+                "updated_at": None,
+                "indicators": {},
+                "candles": pd.DataFrame()
+            }
+
 
 # Create a singleton instance for easy access
 data_transformer = DataTransformer() 

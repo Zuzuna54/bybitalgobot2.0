@@ -13,6 +13,7 @@ from loguru import logger
 from src.dashboard.layouts.trading_layout import create_trading_panel
 from src.dashboard.layouts.performance_layout import create_performance_panel
 from src.dashboard.layouts.settings_layout import create_settings_panel
+from src.dashboard.layouts.market_layout import create_market_layout
 from src.dashboard.services.notification_service import create_notification_components
 
 
@@ -48,15 +49,19 @@ def create_navigation() -> dbc.Tabs:
         Dash Bootstrap Tabs component
     """
     logger.debug("Creating navigation tabs")
-    tabs = dbc.Tabs([
-        dbc.Tab(label="Performance", tab_id="performance-tab"),
-        dbc.Tab(label="Trading", tab_id="trading-tab"),
-        dbc.Tab(label="Orderbook", tab_id="orderbook-tab"),
-        dbc.Tab(label="Strategies", tab_id="strategy-tab"),
-        dbc.Tab(label="Settings", tab_id="settings-tab"),
-    ], id="tabs", active_tab="performance-tab")
-    logger.debug("Navigation tabs created with performance-tab active by default")
-    return tabs
+    return dbc.Tabs(
+        id="tabs",
+        active_tab="performance-tab",
+        children=[
+            dbc.Tab(label="Performance", tab_id="performance-tab"),
+            dbc.Tab(label="Trading", tab_id="trading-tab"),
+            dbc.Tab(label="Orderbook", tab_id="orderbook-tab"),
+            dbc.Tab(label="Market", tab_id="market-tab"),
+            dbc.Tab(label="Strategy", tab_id="strategy-tab"),
+            dbc.Tab(label="Settings", tab_id="settings-tab")
+        ],
+        className="nav-tabs"
+    )
 
 
 def create_footer() -> html.Div:
@@ -80,27 +85,32 @@ def create_footer() -> html.Div:
 
 def create_tab_content() -> html.Div:
     """
-    Create the container for tab content.
+    Create the tab content container.
     
     Returns:
-        Dash HTML Div containing the tab content container
+        Dash HTML Div containing the tab content layout
     """
-    # Import here to avoid circular imports
-    from src.dashboard.layouts.performance_layout import create_performance_panel
-    
-    logger.debug("Creating initial tab content containers")
-    
     return html.Div([
-        # Performance tab is visible by default, so pre-load its content
-        html.Div(id="performance-content", 
-                 children=create_performance_panel(), 
-                 style={"display": "block"}),
-        html.Div(id="trading-content", style={"display": "none"}),
-        html.Div(id="orderbook-content", style={"display": "none"}),
-        html.Div(id="strategy-content", style={"display": "none"}),
-        html.Div(id="settings-content", style={"display": "none"}),
-        # Store the currently active tab
+        # Store the active tab information
         dcc.Store(id="active-tab-store", data="performance-tab"),
+        
+        # Performance tab content
+        html.Div(id="performance-content", style={"display": "block"}),
+        
+        # Trading tab content
+        html.Div(id="trading-content", style={"display": "none"}),
+        
+        # Orderbook tab content
+        html.Div(id="orderbook-content", style={"display": "none"}),
+        
+        # Market tab content
+        html.Div(id="market-content", style={"display": "none"}),
+        
+        # Strategy tab content
+        html.Div(id="strategy-content", style={"display": "none"}),
+        
+        # Settings tab content
+        html.Div(id="settings-content", style={"display": "none"})
     ], className="tab-content")
 
 
@@ -332,6 +342,7 @@ def register_layout_callbacks(app: dash.Dash, get_system_status_func) -> None:
             dash.Output("performance-content", "style"),
             dash.Output("trading-content", "style"),
             dash.Output("orderbook-content", "style"),
+            dash.Output("market-content", "style"),
             dash.Output("strategy-content", "style"),
             dash.Output("settings-content", "style"),
             dash.Output("active-tab-store", "data")
@@ -340,48 +351,39 @@ def register_layout_callbacks(app: dash.Dash, get_system_status_func) -> None:
     )
     def switch_tab(active_tab):
         """
-        Switch between content tabs based on active tab.
+        Switch between tabs based on the active tab selection.
         
         Args:
-            active_tab: The ID of the active tab
+            active_tab: The currently active tab ID
             
         Returns:
             List of style dictionaries for each tab content and the active tab ID
         """
-        logger.debug(f"Tab switching callback triggered with active_tab={active_tab}")
+        logger.debug(f"Switching to tab: {active_tab}")
         
-        tab_styles = {
-            "performance-content": {"display": "none"},
-            "trading-content": {"display": "none"},
-            "orderbook-content": {"display": "none"},
-            "strategy-content": {"display": "none"},
-            "settings-content": {"display": "none"}
-        }
+        # Default styles (all hidden)
+        performance_style = {"display": "none"}
+        trading_style = {"display": "none"}
+        orderbook_style = {"display": "none"}
+        market_style = {"display": "none"}
+        strategy_style = {"display": "none"}
+        settings_style = {"display": "none"}
         
-        # Set the active tab to display
-        tab_map = {
-            "performance-tab": "performance-content",
-            "trading-tab": "trading-content",
-            "orderbook-tab": "orderbook-content",
-            "strategy-tab": "strategy-content",
-            "settings-tab": "settings-content"
-        }
+        # Set the active tab to visible
+        if active_tab == "performance-tab":
+            performance_style = {"display": "block"}
+        elif active_tab == "trading-tab":
+            trading_style = {"display": "block"}
+        elif active_tab == "orderbook-tab":
+            orderbook_style = {"display": "block"}
+        elif active_tab == "market-tab":
+            market_style = {"display": "block"}
+        elif active_tab == "strategy-tab":
+            strategy_style = {"display": "block"}
+        elif active_tab == "settings-tab":
+            settings_style = {"display": "block"}
         
-        active_content = tab_map.get(active_tab)
-        if active_content:
-            tab_styles[active_content] = {"display": "block"}
-            logger.debug(f"Setting {active_content} to visible, others to hidden")
-        else:
-            logger.warning(f"Unknown tab ID: {active_tab}")
-        
-        return [
-            tab_styles["performance-content"],
-            tab_styles["trading-content"],
-            tab_styles["orderbook-content"],
-            tab_styles["strategy-content"],
-            tab_styles["settings-content"],
-            active_tab
-        ]
+        return performance_style, trading_style, orderbook_style, market_style, strategy_style, settings_style, active_tab
     
     # Dynamic content loading callbacks
     @app.callback(
@@ -426,6 +428,26 @@ def register_layout_callbacks(app: dash.Dash, get_system_status_func) -> None:
             logger.debug("Loading orderbook panel content")
             return create_orderbook_panel()
         logger.debug("Skipping orderbook content loading (not active tab)")
+        return dash.no_update
+    
+    @app.callback(
+        dash.Output("market-content", "children"),
+        [dash.Input("active-tab-store", "data")],
+        prevent_initial_call=True
+    )
+    def load_market_content(active_tab):
+        """
+        Load market content when the market tab is selected.
+        
+        Args:
+            active_tab: The currently active tab ID
+            
+        Returns:
+            Market content if the market tab is active, otherwise None
+        """
+        if active_tab == "market-tab":
+            logger.debug("Loading market content")
+            return create_market_layout()
         return dash.no_update
     
     @app.callback(
@@ -465,19 +487,19 @@ def register_layout_callbacks(app: dash.Dash, get_system_status_func) -> None:
 
 def register_tab_switching_callbacks(app: dash.Dash) -> None:
     """
-    Register only the tab switching callbacks.
+    Register callbacks for tab switching functionality.
     
     Args:
         app: The Dash application instance
     """
-    logger.debug("Starting tab switching callback registration")
+    logger.debug("Registering tab switching callbacks")
     
-    # Tab switching callback
     @app.callback(
         [
             dash.Output("performance-content", "style"),
             dash.Output("trading-content", "style"),
             dash.Output("orderbook-content", "style"),
+            dash.Output("market-content", "style"),
             dash.Output("strategy-content", "style"),
             dash.Output("settings-content", "style"),
             dash.Output("active-tab-store", "data")
@@ -486,48 +508,39 @@ def register_tab_switching_callbacks(app: dash.Dash) -> None:
     )
     def switch_tab(active_tab):
         """
-        Switch between content tabs based on active tab.
+        Switch between tabs based on the active tab selection.
         
         Args:
-            active_tab: The ID of the active tab
+            active_tab: The currently active tab ID
             
         Returns:
             List of style dictionaries for each tab content and the active tab ID
         """
-        logger.debug(f"Tab switching callback triggered with active_tab={active_tab}")
+        logger.debug(f"Switching to tab: {active_tab}")
         
-        tab_styles = {
-            "performance-content": {"display": "none"},
-            "trading-content": {"display": "none"},
-            "orderbook-content": {"display": "none"},
-            "strategy-content": {"display": "none"},
-            "settings-content": {"display": "none"}
-        }
+        # Default styles (all hidden)
+        performance_style = {"display": "none"}
+        trading_style = {"display": "none"}
+        orderbook_style = {"display": "none"}
+        market_style = {"display": "none"}
+        strategy_style = {"display": "none"}
+        settings_style = {"display": "none"}
         
-        # Set the active tab to display
-        tab_map = {
-            "performance-tab": "performance-content",
-            "trading-tab": "trading-content",
-            "orderbook-tab": "orderbook-content",
-            "strategy-tab": "strategy-content",
-            "settings-tab": "settings-content"
-        }
+        # Set the active tab to visible
+        if active_tab == "performance-tab":
+            performance_style = {"display": "block"}
+        elif active_tab == "trading-tab":
+            trading_style = {"display": "block"}
+        elif active_tab == "orderbook-tab":
+            orderbook_style = {"display": "block"}
+        elif active_tab == "market-tab":
+            market_style = {"display": "block"}
+        elif active_tab == "strategy-tab":
+            strategy_style = {"display": "block"}
+        elif active_tab == "settings-tab":
+            settings_style = {"display": "block"}
         
-        active_content = tab_map.get(active_tab)
-        if active_content:
-            tab_styles[active_content] = {"display": "block"}
-            logger.debug(f"Setting {active_content} to visible, others to hidden")
-        else:
-            logger.warning(f"Unknown tab ID: {active_tab}")
-        
-        return [
-            tab_styles["performance-content"],
-            tab_styles["trading-content"],
-            tab_styles["orderbook-content"],
-            tab_styles["strategy-content"],
-            tab_styles["settings-content"],
-            active_tab
-        ]
+        return performance_style, trading_style, orderbook_style, market_style, strategy_style, settings_style, active_tab
     
     # Dynamic content loading callbacks
     @app.callback(
@@ -572,6 +585,26 @@ def register_tab_switching_callbacks(app: dash.Dash) -> None:
             logger.debug("Loading orderbook panel content")
             return create_orderbook_panel()
         logger.debug("Skipping orderbook content loading (not active tab)")
+        return dash.no_update
+    
+    @app.callback(
+        dash.Output("market-content", "children"),
+        [dash.Input("active-tab-store", "data")],
+        prevent_initial_call=True
+    )
+    def load_market_content(active_tab):
+        """
+        Load market content when the market tab is selected.
+        
+        Args:
+            active_tab: The currently active tab ID
+            
+        Returns:
+            Market content if the market tab is active, otherwise None
+        """
+        if active_tab == "market-tab":
+            logger.debug("Loading market content")
+            return create_market_layout()
         return dash.no_update
     
     @app.callback(

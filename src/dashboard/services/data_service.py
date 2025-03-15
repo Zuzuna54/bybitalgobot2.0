@@ -77,6 +77,17 @@ class DashboardDataService:
                 self.performance_tracker is None):
             self._initialize_standalone_mode()
     
+    @property
+    def standalone_mode(self) -> bool:
+        """
+        Check if the dashboard is running in standalone mode.
+        
+        Returns:
+            True if running in standalone mode, False otherwise
+        """
+        return (self.api_client is None or self.trade_manager is None or 
+                self.performance_tracker is None)
+    
     def _initialize_standalone_mode(self):
         """Initialize with sample data for standalone dashboard mode."""
         logger.info("Initializing dashboard in standalone mode with sample data")
@@ -935,4 +946,219 @@ class DashboardDataService:
             "indicators": indicators,
             "signals": signals,
             "positions": positions
+        }
+    
+    def get_market_data(self, symbol: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get market data for the specified symbol.
+        
+        Args:
+            symbol: The symbol to get market data for (optional)
+            
+        Returns:
+            Dictionary containing market data with price information, indicators, and candles
+        """
+        # Update timestamp for data freshness tracking
+        self._data_updated_at["market"] = datetime.now()
+        
+        try:
+            if self.standalone_mode:
+                # Generate sample market data in standalone mode
+                market_data = self._generate_sample_market_data(symbol)
+                # Use the DataTransformer to transform market data
+                return data_transformer.transform_market_data(market_data)
+            else:
+                # In connected mode, get data from the market data source
+                if self.market_data:
+                    # Get the current symbol if not specified
+                    if symbol is None and hasattr(self.market_data, 'get_current_symbol'):
+                        symbol = self.market_data.get_current_symbol()
+                    elif symbol is None:
+                        # Default symbol
+                        symbol = "BTC/USD"
+                    
+                    # Check cache first
+                    cache_key = f"market_data_{symbol}"
+                    if cache_key in self._market_data_cache:
+                        cached_data, timestamp = self._market_data_cache[cache_key]
+                        # Check if cache is fresh (less than 5 seconds old)
+                        if (datetime.now() - timestamp).total_seconds() < 5:
+                            return cached_data
+                    
+                    # Get market data
+                    market_data = {}
+                    
+                    # Attempt to get ticker data
+                    if hasattr(self.market_data, 'get_ticker'):
+                        ticker = self.market_data.get_ticker(symbol)
+                        if ticker:
+                            market_data.update(ticker)
+                    
+                    # Attempt to get candle data
+                    if hasattr(self.market_data, 'get_candles'):
+                        candles = self.market_data.get_candles(symbol, timeframe='1m', limit=100)
+                        if candles:
+                            market_data['candles'] = candles
+                    
+                    # Attempt to get indicators
+                    if hasattr(self.market_data, 'get_indicators'):
+                        indicators = self.market_data.get_indicators(symbol)
+                        if indicators:
+                            market_data['indicators'] = indicators
+                    
+                    # If we have market data, transform it
+                    if market_data:
+                        # Transform the data
+                        transformed_data = data_transformer.transform_market_data(market_data)
+                        
+                        # Cache the result
+                        self._market_data_cache[cache_key] = (transformed_data, datetime.now())
+                        
+                        return transformed_data
+                    
+                    # Fall back to sample data if no market data found
+                    logger.info(f"No market data found for {symbol}, using sample data")
+                    return self._get_sample_market_data(symbol)
+                else:
+                    # Fallback when no market data source is available
+                    logger.info("No market data source available, using sample data")
+                    return self._get_sample_market_data(symbol)
+        except Exception as e:
+            logger.error(f"Error retrieving market data: {str(e)}")
+            return self._get_sample_market_data(symbol)
+    
+    def _get_sample_market_data(self, symbol: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generate sample market data for standalone mode or fallback.
+        
+        Args:
+            symbol: The symbol to generate market data for
+            
+        Returns:
+            Dictionary with sample market data
+        """
+        market_data = self._generate_sample_market_data(symbol)
+        # Use the DataTransformer to standardize the transformation
+        return data_transformer.transform_market_data(market_data)
+    
+    def _generate_sample_market_data(self, symbol: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generate sample market data.
+        
+        Args:
+            symbol: The symbol to generate data for
+            
+        Returns:
+            Dictionary with sample market data
+        """
+        # Default symbol if none provided
+        if symbol is None:
+            symbol = "BTC/USD"
+        
+        # Generate a realistic price based on the symbol
+        base_price = 0.0
+        if "BTC" in symbol:
+            base_price = 40000 + np.random.normal(0, 200)
+        elif "ETH" in symbol:
+            base_price = 2800 + np.random.normal(0, 50)
+        elif "BNB" in symbol:
+            base_price = 320 + np.random.normal(0, 5)
+        elif "ADA" in symbol:
+            base_price = 0.35 + np.random.normal(0, 0.01)
+        elif "SOL" in symbol:
+            base_price = 75 + np.random.normal(0, 2)
+        elif "XRP" in symbol:
+            base_price = 0.55 + np.random.normal(0, 0.01)
+        else:
+            base_price = 100 + np.random.normal(0, 3)
+        
+        # Ensure price is positive
+        price = max(0.01, base_price)
+        
+        # Create bid and ask with a small spread
+        spread_pct = 0.05  # 0.05% spread
+        spread = price * (spread_pct / 100)
+        bid = price - (spread / 2)
+        ask = price + (spread / 2)
+        
+        # Generate 24h statistics
+        open_24h = price * (1 + np.random.normal(0, 0.02))  # Within ±2% of current price
+        high_24h = max(price, open_24h) * (1 + abs(np.random.normal(0, 0.01)))
+        low_24h = min(price, open_24h) * (1 - abs(np.random.normal(0, 0.01)))
+        volume_24h = np.random.uniform(100, 1000) * price
+        
+        # Calculate change
+        change_24h = price - open_24h
+        change_pct_24h = (change_24h / open_24h) * 100
+        
+        # Generate sample indicators
+        indicators = {
+            "rsi": {
+                "value": np.random.uniform(30, 70),
+                "type": "oscillator"
+            },
+            "ma_50": {
+                "value": price * (1 + np.random.normal(0, 0.01)),
+                "type": "price"
+            },
+            "ma_200": {
+                "value": price * (1 + np.random.normal(0, 0.02)),
+                "type": "price"
+            },
+            "volume_avg": {
+                "value": volume_24h * 0.9,  # Slightly less than today's volume
+                "type": "volume"
+            }
+        }
+        
+        # Generate sample candles
+        candles = []
+        start_time = datetime.now() - timedelta(hours=24)
+        
+        # Start with a price around open_24h
+        candle_price = open_24h
+        
+        for i in range(24 * 60):  # 24 hours of 1-minute candles
+            candle_time = start_time + timedelta(minutes=i)
+            
+            # Random price movement with some trend persistence
+            price_change = np.random.normal(0, 0.0005) + (0.0001 * (price - candle_price) / price)
+            candle_price = candle_price * (1 + price_change)
+            
+            # Generate OHLC
+            candle_open = candle_price
+            candle_high = candle_open * (1 + abs(np.random.normal(0, 0.0003)))
+            candle_low = candle_open * (1 - abs(np.random.normal(0, 0.0003)))
+            candle_close = candle_price * (1 + np.random.normal(0, 0.0002))
+            
+            # Ensure proper ordering of prices
+            candle_high = max(candle_open, candle_close, candle_high)
+            candle_low = min(candle_open, candle_close, candle_low)
+            
+            # Random volume
+            candle_volume = np.random.uniform(0.5, 1.5) * (volume_24h / (24 * 60))
+            
+            candles.append({
+                "timestamp": candle_time,
+                "open": candle_open,
+                "high": candle_high,
+                "low": candle_low,
+                "close": candle_close,
+                "volume": candle_volume
+            })
+        
+        return {
+            "symbol": symbol,
+            "last_price": price,
+            "bid": bid,
+            "ask": ask,
+            "open_24h": open_24h,
+            "high_24h": high_24h,
+            "low_24h": low_24h,
+            "volume_24h": volume_24h,
+            "change_24h": change_24h,
+            "change_pct_24h": change_pct_24h,
+            "timestamp": datetime.now(),
+            "indicators": indicators,
+            "candles": candles
         } 

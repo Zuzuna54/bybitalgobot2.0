@@ -54,6 +54,7 @@ def register_all_callbacks(app: dash.Dash) -> None:
     # Import component callbacks
     from src.dashboard.components.orderbook import register_orderbook_callbacks
     from src.dashboard.components.strategy import register_strategy_callbacks
+    from src.dashboard.components.market import register_market_callbacks
     
     # Import service callbacks
     from src.dashboard.services.notification_service import register_notification_callbacks
@@ -77,6 +78,9 @@ def register_all_callbacks(app: dash.Dash) -> None:
     
     log_callback_registration("register_strategy_callbacks")
     register_strategy_callbacks(app, get_strategy_data, get_strategy_manager())
+    
+    log_callback_registration("register_market_callbacks")
+    register_market_callbacks(app, get_market_data)
     
     # Register system and service callbacks
     log_callback_registration("register_system_callbacks")
@@ -204,37 +208,58 @@ def register_system_callbacks(app: dash.Dash) -> None:
 # Data access wrapper functions for components
 def get_orderbook_data(symbol=None, depth=None):
     """
-    Get orderbook data for components.
+    Get orderbook data from the data service.
     
     Args:
-        symbol: The trading symbol
-        depth: The orderbook depth to retrieve
+        symbol: Symbol to get orderbook data for
+        depth: Depth of orderbook to retrieve
         
     Returns:
-        Orderbook data dictionary
+        Dictionary with orderbook data
     """
-    global data_service
     try:
+        global data_service
         if data_service:
             return data_service.get_orderbook_data(symbol, depth)
         else:
             logger.warning("Data service not initialized in get_orderbook_data")
-            return {"error": "Data service not initialized"}
+            return {}
     except Exception as e:
         logger.error(f"Error in get_orderbook_data: {str(e)}")
-        logger.error(traceback.format_exc())
-        return {"error": str(e)}
+        return {}
+
+
+def get_market_data(symbol=None):
+    """
+    Get market data from the data service.
+    
+    Args:
+        symbol: Symbol to get market data for
+        
+    Returns:
+        Dictionary with market data
+    """
+    try:
+        global data_service
+        if data_service:
+            return data_service.get_market_data(symbol)
+        else:
+            logger.warning("Data service not initialized in get_market_data")
+            return {}
+    except Exception as e:
+        logger.error(f"Error in get_market_data: {str(e)}")
+        return {}
 
 
 def get_strategy_data(strategy_id=None):
     """
-    Get strategy data for components.
+    Get strategy data from the data service.
     
     Args:
-        strategy_id: Optional strategy ID to filter by
+        strategy_id: Strategy ID to get data for
         
     Returns:
-        Strategy data dictionary
+        Dictionary with strategy data
     """
     global data_service
     try:
