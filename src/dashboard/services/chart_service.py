@@ -123,6 +123,74 @@ def create_empty_chart(title: str) -> go.Figure:
     return fig
 
 
+def create_empty_sparkline() -> go.Figure:
+    """
+    Create an empty sparkline chart.
+    
+    Returns:
+        Plotly figure object
+    """
+    fig = go.Figure()
+    fig.update_layout(
+        showlegend=False,
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        margin=dict(l=0, r=0, t=0, b=0),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+    )
+    # Add a flat line
+    x = list(range(10))
+    y = [0] * 10
+    fig.add_trace(go.Scatter(x=x, y=y, mode="lines", line=dict(color="gray", width=1)))
+    return fig
+
+
+def create_return_sparkline(returns_data: Optional[pd.DataFrame] = None) -> go.Figure:
+    """
+    Create a return sparkline chart.
+    
+    Args:
+        returns_data: Optional dataframe with return data. If None, sample data is used.
+        
+    Returns:
+        Sparkline chart figure
+    """
+    fig = go.Figure()
+    
+    # If no data provided, generate sample data
+    if returns_data is None or returns_data.empty:
+        # Generate sample data
+        x = list(range(30))
+        y = [10000 * (1 + 0.0023) ** i for i in range(30)]
+    else:
+        # Use the provided data
+        x = list(range(len(returns_data)))
+        y = returns_data.values.tolist()
+    
+    # Create the figure    
+    fig.add_trace(go.Scatter(
+        x=x,
+        y=y,
+        mode="lines",
+        line=dict(color="green", width=1.5),
+        fill="tozeroy",
+        fillcolor="rgba(0,255,0,0.1)"
+    ))
+    
+    # Update layout
+    fig.update_layout(
+        showlegend=False,
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        margin=dict(l=0, r=0, t=0, b=0),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+    )
+    
+    return fig
+
+
 def create_equity_curve_chart(equity_data: pd.DataFrame, time_range: str = "1m") -> go.Figure:
     """
     Create an equity curve chart from equity data.

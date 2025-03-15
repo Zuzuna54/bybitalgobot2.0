@@ -23,6 +23,9 @@ This document outlines a comprehensive plan for improving the algorithmic tradin
 - ✅ Improved error handling and fallbacks in data transformations
 - ✅ Standardized data transformation logic in the data service
 - ✅ Added comprehensive market data transformation and retrieval
+- ✅ Implemented the `standalone_mode` property in `DashboardDataService` to simplify mode checking
+- ✅ Moved chart creation functions from `performance_layout.py` to `chart_service.py`
+- ✅ Added error handling to chart-related callbacks
 
 ### In Progress:
 
@@ -30,6 +33,7 @@ This document outlines a comprehensive plan for improving the algorithmic tradin
 - 🔄 Consolidating duplicate utility functions
 - 🔄 Optimizing callback dependencies
 - 🔄 Enhancing service architecture
+- 🔄 Moving chart creation functions from other layout files to `chart_service.py`
 
 ## 1. Callback Registration Consolidation
 
@@ -82,8 +86,8 @@ This document outlines a comprehensive plan for improving the algorithmic tradin
 
 1. **HIGH PRIORITY**: Consolidate visualization code in chart service 🔄
 
-   - Move all chart creation from `layouts/performance_layout.py` to `services/chart_service.py`
-   - Remove `create_empty_chart` duplication in component files
+   - Move all chart creation from `layouts/performance_layout.py` to `services/chart_service.py` ✅
+   - Remove `create_empty_chart` duplication in component files ✅
    - Create standardized chart interfaces for all visualizations ✅
    - Implement a theme configuration for consistent styling ✅
 
@@ -257,7 +261,7 @@ This document outlines a comprehensive plan for improving the algorithmic tradin
 
 ### Phase 1: Core Architecture (Weeks 1-2)
 
-1. **Week 1: Callback Registration Consolidation** 🔄
+1. **Week 1: Callback Registration Consolidation** ✅
 
    - Consolidate all callback registrations in `router/callbacks.py` ✅
    - Fix import path inconsistencies ✅
@@ -266,6 +270,12 @@ This document outlines a comprehensive plan for improving the algorithmic tradin
 
 2. **Week 2: Critical Code Deduplication** 🔄
    - Move all chart creation to `services/chart_service.py` 🔄
+     - Move `create_empty_chart` and `create_empty_sparkline` from `performance_layout.py` to `chart_service.py` ✅
+     - Add `create_return_sparkline` function to `chart_service.py` ✅
+     - Update `update_equity_curve` and `update_return_sparkline` callbacks to use chart service ✅
+     - Remove duplicate visualization code in `performance_layout.py` ✅
+     - Add error handling to chart-related callbacks ✅
+     - Move remaining chart creation functions from other layout files to `chart_service.py` 🔄
    - Consolidate duplicate utility functions 🔄
    - Implement basic caching mechanism ✅
    - Fix immediate callback conflicts ✅
@@ -287,7 +297,7 @@ This document outlines a comprehensive plan for improving the algorithmic tradin
    - Enhance service architecture 🔄
 
 5. **Week 5: Data Flow Improvements**
-   - Standardize data transformation methods 🔄
+   - Standardize data transformation methods ✅
    - Address race conditions 🔄
    - Implement proper locking mechanisms ✅
    - Enhance event handling system

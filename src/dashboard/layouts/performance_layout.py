@@ -15,6 +15,13 @@ import pandas as pd
 import numpy as np
 from loguru import logger
 
+from src.dashboard.services.chart_service import (
+    create_empty_chart, 
+    create_empty_sparkline,
+    create_return_sparkline,
+    create_equity_curve_chart
+)
+
 
 def create_performance_panel() -> html.Div:
     """
@@ -157,57 +164,6 @@ def create_performance_panel() -> html.Div:
     ])
 
 
-def create_empty_chart(title: str) -> go.Figure:
-    """
-    Create an empty chart figure with a title.
-    
-    Args:
-        title: The chart title
-        
-    Returns:
-        Plotly figure object
-    """
-    fig = go.Figure()
-    fig.update_layout(
-        title=title,
-        template="plotly_white",
-        showlegend=False,
-        xaxis=dict(showgrid=True, zeroline=False, showticklabels=True),
-        yaxis=dict(showgrid=True, zeroline=False, showticklabels=True),
-        margin=dict(l=40, r=40, t=40, b=40),
-    )
-    fig.add_annotation(
-        x=0.5, y=0.5,
-        text="No data available",
-        showarrow=False,
-        font=dict(size=16)
-    )
-    return fig
-
-
-def create_empty_sparkline() -> go.Figure:
-    """
-    Create an empty sparkline chart.
-    
-    Returns:
-        Plotly figure object
-    """
-    fig = go.Figure()
-    fig.update_layout(
-        showlegend=False,
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        margin=dict(l=0, r=0, t=0, b=0),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-    )
-    # Add a flat line
-    x = list(range(10))
-    y = [0] * 10
-    fig.add_trace(go.Scatter(x=x, y=y, mode="lines", line=dict(color="gray", width=1)))
-    return fig
-
-
 def register_performance_callbacks(app: dash.Dash) -> None:
     """
     Register callbacks for the performance panel.
@@ -266,70 +222,45 @@ def register_performance_callbacks(app: dash.Dash) -> None:
         Returns:
             Updated equity curve chart
         """
-        # Generate sample data for demonstration
-        days = 30  # Default to a month of data
-        if time_range == "1d":
-            days = 1
-        elif time_range == "1w":
-            days = 7
-        elif time_range == "1m":
-            days = 30
-        elif time_range == "3m":
-            days = 90
-        
-        # Create sample data
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        dates = pd.date_range(start=start_date, end=end_date, freq="D")
-        
-        # Create a sample equity curve with some randomness
-        np.random.seed(42)  # For reproducibility
-        equity = 10000.0  # Starting equity
-        equities = [equity]
-        
-        for i in range(1, len(dates)):
-            daily_return = np.random.normal(0.001, 0.01)  # Mean 0.1%, std 1%
-            equity *= (1 + daily_return)
-            equities.append(equity)
-        
-        # Create the figure
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=dates,
-            y=equities,
-            mode="lines",
-            line=dict(color="green", width=2),
-            name="Equity"
-        ))
-        
-        # Add drawdown shading
-        drawdowns = []
-        peak = equities[0]
-        for e in equities:
-            peak = max(peak, e)
-            drawdowns.append((peak - e) / peak * 100)  # Drawdown as percentage
-        
-        fig.add_trace(go.Scatter(
-            x=dates,
-            y=[equities[i] - equities[i] * drawdowns[i] / 100 for i in range(len(equities))],
-            mode="none",
-            fill="tonexty",
-            fillcolor="rgba(255,0,0,0.1)",
-            name="Drawdown"
-        ))
-        
-        # Update layout
-        fig.update_layout(
-            title="Equity Curve",
-            template="plotly_white",
-            showlegend=True,
-            xaxis=dict(showgrid=True, zeroline=False, title="Date"),
-            yaxis=dict(showgrid=True, zeroline=False, title="Equity ($)"),
-            margin=dict(l=40, r=40, t=40, b=40),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        
-        return fig
+        try:
+            # Generate sample data for demonstration
+            days = 30  # Default to a month of data
+            if time_range == "1d":
+                days = 1
+            elif time_range == "1w":
+                days = 7
+            elif time_range == "1m":
+                days = 30
+            elif time_range == "3m":
+                days = 90
+            
+            # Create sample data
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+            dates = pd.date_range(start=start_date, end=end_date, freq="D")
+            
+            # Create a sample equity curve with some randomness
+            np.random.seed(42)  # For reproducibility
+            equity = 10000.0  # Starting equity
+            equities = [equity]
+            
+            for i in range(1, len(dates)):
+                daily_return = np.random.normal(0.001, 0.01)  # Mean 0.1%, std 1%
+                equity *= (1 + daily_return)
+                equities.append(equity)
+            
+            # Create DataFrame for the equity curve chart
+            equity_data = pd.DataFrame({
+                "equity": equities,
+                "date": dates
+            })
+            equity_data.set_index("date", inplace=True)
+            
+            # Use the chart service to create the equity curve chart
+            return create_equity_curve_chart(equity_data, time_range)
+        except Exception as e:
+            logger.error(f"Error updating equity curve: {str(e)}")
+            return create_empty_chart("Equity Curve")
     
     @app.callback(
         dash.Output("total-return-sparkline", "figure"),
@@ -345,32 +276,19 @@ def register_performance_callbacks(app: dash.Dash) -> None:
         Returns:
             Updated sparkline chart
         """
-        # Generate sample data
-        x = list(range(30))
-        y = [10000 * (1 + 0.0023) ** i for i in range(30)]
-        
-        # Create the figure
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=x,
-            y=y,
-            mode="lines",
-            line=dict(color="green", width=1.5),
-            fill="tozeroy",
-            fillcolor="rgba(0,255,0,0.1)"
-        ))
-        
-        # Update layout
-        fig.update_layout(
-            showlegend=False,
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            margin=dict(l=0, r=0, t=0, b=0),
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-        )
-        
-        return fig
+        try:
+            # Generate sample data
+            x = list(range(30))
+            y = [10000 * (1 + 0.0023) ** i for i in range(30)]
+            
+            # Create dataframe for the sparkline
+            returns_data = pd.DataFrame(y, columns=["return"])
+            
+            # Use the chart service to create the return sparkline
+            return create_return_sparkline(returns_data)
+        except Exception as e:
+            logger.error(f"Error updating return sparkline: {str(e)}")
+            return create_empty_sparkline()
     
     @app.callback(
         dash.Output("recent-trades-table", "children"),
