@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 
+from src.dashboard.utils.time_utils import format_timestamp, format_time_ago, format_duration
+
 
 def format_currency(value: float, precision: int = 2, currency: str = "$") -> str:
     """
@@ -47,125 +49,7 @@ def format_percentage(value: float, precision: int = 2, include_sign: bool = Fal
     return f"{percentage:,.{precision}f}%"
 
 
-def format_timestamp(timestamp: Union[datetime, str, float, int], 
-                     format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
-    """
-    Format a timestamp in a human-readable format.
-    
-    Args:
-        timestamp: The timestamp to format (datetime, string, or epoch time)
-        format_str: The format string to use
-        
-    Returns:
-        Formatted timestamp string
-    """
-    if isinstance(timestamp, str):
-        try:
-            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-        except ValueError:
-            # Try other common formats
-            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
-                try:
-                    dt = datetime.strptime(timestamp, fmt)
-                    break
-                except ValueError:
-                    continue
-            else:
-                return timestamp  # Return original if parsing fails
-    elif isinstance(timestamp, (int, float)):
-        # Assume epoch time in seconds if it's a reasonable value (year 1970-2100)
-        if 0 <= timestamp <= 4102444800:  # Jan 1, 1970 to Jan 1, 2100
-            dt = datetime.fromtimestamp(timestamp)
-        # Assume milliseconds if it's a large value
-        elif 946684800000 <= timestamp <= 4102444800000:  # Jan 1, 2000 to Jan 1, 2100
-            dt = datetime.fromtimestamp(timestamp / 1000)
-        else:
-            return str(timestamp)  # Return original if value is unreasonable
-    elif isinstance(timestamp, datetime):
-        dt = timestamp
-    else:
-        return str(timestamp)  # Return original if type is not supported
-    
-    return dt.strftime(format_str)
-
-
-def format_time_ago(timestamp: Union[datetime, str, float, int]) -> str:
-    """
-    Format a timestamp as a relative time (e.g., "5 minutes ago").
-    
-    Args:
-        timestamp: The timestamp to format (datetime, string, or epoch time)
-        
-    Returns:
-        Relative time string
-    """
-    # Convert to datetime if needed
-    if isinstance(timestamp, str):
-        try:
-            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-        except ValueError:
-            try:
-                dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                return timestamp  # Return original if parsing fails
-    elif isinstance(timestamp, (int, float)):
-        # Assume epoch time in seconds if it's a reasonable value (year 1970-2100)
-        if 0 <= timestamp <= 4102444800:  # Jan 1, 1970 to Jan 1, 2100
-            dt = datetime.fromtimestamp(timestamp)
-        # Assume milliseconds if it's a large value
-        elif 946684800000 <= timestamp <= 4102444800000:  # Jan 1, 2000 to Jan 1, 2100
-            dt = datetime.fromtimestamp(timestamp / 1000)
-        else:
-            return str(timestamp)  # Return original if value is unreasonable
-    elif isinstance(timestamp, datetime):
-        dt = timestamp
-    else:
-        return str(timestamp)  # Return original if type is not supported
-    
-    # Calculate the time difference
-    now = datetime.now()
-    diff = now - dt
-    
-    # Format based on the time difference
-    if diff.total_seconds() < 60:
-        return "just now"
-    elif diff.total_seconds() < 3600:
-        minutes = int(diff.total_seconds() / 60)
-        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-    elif diff.total_seconds() < 86400:
-        hours = int(diff.total_seconds() / 3600)
-        return f"{hours} hour{'s' if hours != 1 else ''} ago"
-    elif diff.total_seconds() < 604800:
-        days = int(diff.total_seconds() / 86400)
-        return f"{days} day{'s' if days != 1 else ''} ago"
-    else:
-        return dt.strftime("%Y-%m-%d")
-
-
-def format_duration(seconds: float) -> str:
-    """
-    Format a duration in seconds as a human-readable string.
-    
-    Args:
-        seconds: Duration in seconds
-        
-    Returns:
-        Formatted duration string
-    """
-    # Calculate days, hours, minutes, seconds
-    days, remainder = divmod(seconds, 86400)
-    hours, remainder = divmod(remainder, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    
-    # Format based on the duration
-    if days > 0:
-        return f"{int(days)}d {int(hours)}h {int(minutes)}m"
-    elif hours > 0:
-        return f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
-    elif minutes > 0:
-        return f"{int(minutes)}m {int(seconds)}s"
-    else:
-        return f"{int(seconds)}s"
+# format_timestamp, format_time_ago, and format_duration functions are now imported from time_utils
 
 
 def format_trade_size(size: float, asset: str = "", precision: int = 8) -> str:

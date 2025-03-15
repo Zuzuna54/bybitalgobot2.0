@@ -11,6 +11,8 @@ import time
 from datetime import datetime, timedelta
 from loguru import logger
 
+from src.dashboard.utils.time_utils import is_update_due, get_next_update_time
+
 
 class UpdateService:
     """Service for managing real-time updates to the dashboard."""
@@ -168,9 +170,7 @@ class UpdateService:
         
         # Check if update interval has elapsed
         interval = self.update_intervals[data_type]
-        now = datetime.now()
-        
-        if now - last_update >= timedelta(seconds=interval):
+        if is_update_due(last_update, interval):
             self._process_update(data_type)
     
     def _process_update(self, data_type: str) -> None:
@@ -236,7 +236,7 @@ class UpdateService:
             return datetime.now()  # Immediate update needed
         
         interval = self.update_intervals.get(data_type, 60)
-        return last_update + timedelta(seconds=interval)
+        return get_next_update_time(last_update, interval)
     
     def is_update_due(self, data_type: str) -> bool:
         """
@@ -248,5 +248,6 @@ class UpdateService:
         Returns:
             True if an update is due, False otherwise
         """
-        next_update = self.get_next_update_time(data_type)
-        return next_update <= datetime.now() if next_update else True 
+        last_update = self.last_updates.get(data_type)
+        interval = self.update_intervals.get(data_type, 60)
+        return is_update_due(last_update, interval) 

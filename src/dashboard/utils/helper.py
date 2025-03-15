@@ -28,6 +28,7 @@ from pathlib import Path
 
 from .logger import get_logger
 from .converters import to_float, to_int, to_bool, to_datetime, to_list, to_dict
+from .time_utils import timestamp_ms, timestamp_ns, get_current_time_as_string, get_date_range
 
 logger = get_logger("helper")
 
@@ -60,78 +61,6 @@ def generate_uuid() -> str:
         UUID string
     """
     return str(uuid.uuid4())
-
-
-def timestamp_ms() -> int:
-    """
-    Get the current timestamp in milliseconds.
-    
-    Returns:
-        Current timestamp in milliseconds
-    """
-    return int(time.time() * 1000)
-
-
-def timestamp_ns() -> int:
-    """
-    Get the current timestamp in nanoseconds.
-    
-    Returns:
-        Current timestamp in nanoseconds
-    """
-    return time.time_ns()
-
-
-def get_date_range(start_date: Union[str, datetime, date],
-                  end_date: Union[str, datetime, date],
-                  as_string: bool = False,
-                  fmt: str = "%Y-%m-%d") -> List[Union[datetime, str]]:
-    """
-    Get a list of dates between start_date and end_date (inclusive).
-    
-    Args:
-        start_date: Start date
-        end_date: End date
-        as_string: Whether to return dates as strings
-        fmt: Date format string if as_string is True
-        
-    Returns:
-        List of dates
-    """
-    # Convert to datetime if needed
-    if isinstance(start_date, str):
-        start_date = datetime.strptime(start_date, fmt)
-    if isinstance(end_date, str):
-        end_date = datetime.strptime(end_date, fmt)
-    
-    # Convert date to datetime if needed
-    if isinstance(start_date, date) and not isinstance(start_date, datetime):
-        start_date = datetime.combine(start_date, datetime.min.time())
-    if isinstance(end_date, date) and not isinstance(end_date, datetime):
-        end_date = datetime.combine(end_date, datetime.min.time())
-    
-    # Calculate date range
-    delta = end_date - start_date
-    dates = [start_date + timedelta(days=i) for i in range(delta.days + 1)]
-    
-    # Convert to strings if requested
-    if as_string:
-        return [date.strftime(fmt) for date in dates]
-    
-    return dates
-
-
-def get_current_time_as_string(fmt: str = "%Y-%m-%d %H:%M:%S") -> str:
-    """
-    Get the current time as a formatted string.
-    
-    Args:
-        fmt: Date format string
-        
-    Returns:
-        Formatted current time
-    """
-    return datetime.now().strftime(fmt)
 
 
 def get_system_info() -> Dict[str, Any]:

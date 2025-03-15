@@ -13,6 +13,7 @@ import numpy as np
 from loguru import logger
 
 from src.dashboard.utils.cache import cached
+from src.dashboard.utils.time_utils import format_time_ago, format_duration, filter_data_by_time_range
 
 
 class DataTransformer:
@@ -363,24 +364,7 @@ class DataTransformer:
         if timestamp is None:
             return "never"
         
-        now = datetime.now()
-        delta = now - timestamp
-        seconds = delta.total_seconds()
-        
-        if seconds < 60:
-            return f"{int(seconds)} seconds ago"
-        elif seconds < 3600:
-            minutes = int(seconds / 60)
-            return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-        elif seconds < 86400:
-            hours = int(seconds / 3600)
-            return f"{hours} hour{'s' if hours != 1 else ''} ago"
-        elif seconds < 604800:
-            days = int(seconds / 86400)
-            return f"{days} day{'s' if days != 1 else ''} ago"
-        else:
-            weeks = int(seconds / 604800)
-            return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+        return format_time_ago(timestamp)
     
     @staticmethod
     def format_duration(seconds: Union[int, float]) -> str:
@@ -393,19 +377,7 @@ class DataTransformer:
         Returns:
             Human-readable duration string
         """
-        if seconds < 60:
-            return f"{int(seconds)}s"
-        
-        minutes, seconds = divmod(seconds, 60)
-        if minutes < 60:
-            return f"{int(minutes)}m {int(seconds)}s"
-        
-        hours, minutes = divmod(minutes, 60)
-        if hours < 24:
-            return f"{int(hours)}h {int(minutes)}m"
-        
-        days, hours = divmod(hours, 24)
-        return f"{int(days)}d {int(hours)}h"
+        return format_duration(seconds)
     
     @staticmethod
     def filter_data_by_time_range(
@@ -424,45 +396,7 @@ class DataTransformer:
         Returns:
             Filtered DataFrame
         """
-        if data is None or data.empty or time_range == "all":
-            return data
-        
-        # Set the date series to filter on
-        if date_column is not None and date_column in data.columns:
-            dates = data[date_column]
-        else:
-            if not isinstance(data.index, pd.DatetimeIndex):
-                try:
-                    data.index = pd.to_datetime(data.index)
-                except:
-                    logger.warning("Could not convert index to datetime for time range filtering")
-                    return data
-            dates = data.index
-        
-        now = datetime.now()
-        
-        # Calculate the start date based on the time range
-        if time_range == "1d":
-            start_date = now - timedelta(days=1)
-        elif time_range == "1w":
-            start_date = now - timedelta(weeks=1)
-        elif time_range == "1m":
-            start_date = now - timedelta(days=30)
-        elif time_range == "3m":
-            start_date = now - timedelta(days=90)
-        elif time_range == "6m":
-            start_date = now - timedelta(days=180)
-        elif time_range == "1y":
-            start_date = now - timedelta(days=365)
-        else:
-            # Default to all data
-            return data
-        
-        # Filter the data
-        if date_column is not None:
-            return data[dates >= start_date]
-        else:
-            return data[data.index >= start_date]
+        return filter_data_by_time_range(data, time_range, date_column)
 
     @staticmethod
     @cached(ttl_seconds=60, key_prefix="transform_strategy_data")

@@ -1363,4 +1363,140 @@ def create_strategy_correlation_matrix(strategy_performance: List[Dict[str, Any]
     # Apply standard theme
     apply_chart_theme(fig)
     
+    return fig
+
+
+def create_pnl_by_symbol_graph(trade_history: List[Dict[str, Any]]) -> go.Figure:
+    """
+    Create the P&L by symbol graph.
+    
+    Args:
+        trade_history: List of completed trade dictionaries
+        
+    Returns:
+        Plotly figure object
+    """
+    if not trade_history:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No trade data available",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Convert to DataFrame for easier manipulation
+    df = pd.DataFrame(trade_history)
+    
+    # Filter only completed trades
+    df = df[df['realized_pnl'].notna()]
+    
+    if df.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No completed trades available",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Group by symbol and calculate total P&L
+    symbol_pnl = df.groupby('symbol')['realized_pnl'].sum().reset_index()
+    symbol_pnl = symbol_pnl.sort_values('realized_pnl', ascending=False)
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add P&L bars
+    fig.add_trace(go.Bar(
+        x=symbol_pnl['symbol'],
+        y=symbol_pnl['realized_pnl'],
+        marker=dict(
+            color=symbol_pnl['realized_pnl'].apply(
+                lambda x: 'rgba(50, 171, 96, 0.7)' if x >= 0 else 'rgba(220, 53, 69, 0.7)'
+            )
+        )
+    ))
+    
+    # Apply standard theme
+    fig = apply_chart_theme(fig, "P&L by Symbol")
+    
+    # Update additional layout settings
+    fig.update_layout(
+        xaxis_title="Symbol",
+        yaxis_title="P&L ($)",
+        height=350
+    )
+    
+    return fig
+
+
+def create_win_loss_by_strategy_graph(trade_history: List[Dict[str, Any]]) -> go.Figure:
+    """
+    Create the win/loss by strategy graph.
+    
+    Args:
+        trade_history: List of completed trade dictionaries
+        
+    Returns:
+        Plotly figure object
+    """
+    if not trade_history:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No trade data available",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Convert to DataFrame for easier manipulation
+    df = pd.DataFrame(trade_history)
+    
+    # Filter only completed trades
+    df = df[df['realized_pnl'].notna()]
+    
+    if df.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No completed trades available",
+            template="plotly_white"
+        )
+        return fig
+    
+    # Group by strategy and count wins/losses
+    df['is_win'] = df['realized_pnl'] > 0
+    
+    strategy_performance = df.groupby('strategy_name')['is_win'].agg(['sum', 'count']).reset_index()
+    strategy_performance['win_rate'] = strategy_performance['sum'] / strategy_performance['count'] * 100
+    strategy_performance['loss_count'] = strategy_performance['count'] - strategy_performance['sum']
+    strategy_performance = strategy_performance.sort_values('win_rate', ascending=False)
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add win count bars
+    fig.add_trace(go.Bar(
+        x=strategy_performance['strategy_name'],
+        y=strategy_performance['sum'],
+        name='Wins',
+        marker=dict(color='rgba(50, 171, 96, 0.7)')
+    ))
+    
+    # Add loss count bars
+    fig.add_trace(go.Bar(
+        x=strategy_performance['strategy_name'],
+        y=strategy_performance['loss_count'],
+        name='Losses',
+        marker=dict(color='rgba(220, 53, 69, 0.7)')
+    ))
+    
+    # Apply standard theme
+    fig = apply_chart_theme(fig, "Win/Loss by Strategy")
+    
+    # Update additional layout settings
+    fig.update_layout(
+        xaxis_title="Strategy",
+        yaxis_title="Trade Count",
+        barmode='stack',
+        height=350
+    )
+    
     return fig 

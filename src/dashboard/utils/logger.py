@@ -14,6 +14,7 @@ import datetime
 from pathlib import Path
 
 from src.config.config_manager import get_config_manager
+from src.dashboard.utils.time_utils import get_current_time, get_current_time_as_string, format_duration
 
 # Configure logging defaults
 DEFAULT_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -221,7 +222,7 @@ def log_exception(e: Exception, context: Optional[Dict[str, Any]] = None) -> str
     # Format exception message with context
     error_type = type(e).__name__
     error_msg = str(e)
-    timestamp = datetime.datetime.now().strftime(DEFAULT_DATE_FORMAT)
+    timestamp = get_current_time_as_string(DEFAULT_DATE_FORMAT)
     
     context_str = ""
     if context:
@@ -247,13 +248,13 @@ def measure_execution_time(func):
     """
     def wrapper(*args, **kwargs):
         logger = get_logger()
-        start_time = datetime.datetime.now()
+        start_time = get_current_time()
         
         try:
             result = func(*args, **kwargs)
             
             # Calculate execution time
-            end_time = datetime.datetime.now()
+            end_time = get_current_time()
             execution_time = (end_time - start_time).total_seconds()
             
             # Log execution time
@@ -263,7 +264,7 @@ def measure_execution_time(func):
         
         except Exception as e:
             # Log exception
-            end_time = datetime.datetime.now()
+            end_time = get_current_time()
             execution_time = (end_time - start_time).total_seconds()
             logger.error(f"Function {func.__name__} raised {type(e).__name__} after {execution_time:.4f} seconds: {str(e)}")
             raise
