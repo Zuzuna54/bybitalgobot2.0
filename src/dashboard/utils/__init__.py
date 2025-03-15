@@ -11,7 +11,7 @@ from .converters import (
 )
 
 # Import functions from config_manager module
-from .config_manager import get_config_manager
+from src.config.config_manager import get_config_manager
 
 # Import functions from logger module
 from .logger import get_logger, log_exception, measure_execution_time

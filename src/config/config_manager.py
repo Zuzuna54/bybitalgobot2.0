@@ -14,6 +14,48 @@ import pydantic
 from loguru import logger
 from pydantic import BaseModel, validator, Field
 
+# Singleton instance
+_config_manager_instance = None
+
+def get_config_manager():
+    """
+    Get or create a singleton instance of the ConfigManager.
+    
+    Returns:
+        ConfigManager instance
+    """
+    global _config_manager_instance
+    
+    if _config_manager_instance is None:
+        # Look for config file in standard locations
+        config_locations = [
+            Path("config/config.json"),
+            Path("config/default_config.json"),
+            Path("src/config/config.json"),
+            Path("src/config/default_config.json"),
+            Path(os.environ.get("CONFIG_PATH", ""))
+        ]
+        
+        # Use the first config file found
+        config_path = None
+        for path in config_locations:
+            if path.exists():
+                config_path = path
+                break
+        
+        if config_path is None:
+            logger.warning("No configuration file found in standard locations. Using default_config.json")
+            # Default to the file in the same directory as this module
+            config_path = Path(__file__).parent / "default_config.json"
+            if not config_path.exists():
+                logger.error(f"Default config file not found at {config_path}")
+                raise FileNotFoundError(f"No configuration file found at {config_path}")
+        
+        logger.info(f"Loading configuration from {config_path}")
+        _config_manager_instance = ConfigManager(config_path)
+    
+    return _config_manager_instance
+
 
 class ExchangeConfig(BaseModel):
     """Exchange configuration settings."""
@@ -22,14 +64,12 @@ class ExchangeConfig(BaseModel):
     api_key: Optional[str] = None
     api_secret: Optional[str] = None
     
-    @validator('api_key', 'api_secret', pre=True, always=True)
-    def validate_credentials(cls, v, values, **kwargs):
-        """Check if credentials should be loaded from environment variables."""
-        field_name = kwargs['field'].name
-        
+    @validator('api_key')
+    def validate_api_key(cls, v, values):
+        """Check if API key should be loaded from environment variables."""
         # Allow explicit None for testing
         if v is None and values.get('name') == 'bybit':
-            env_var = f"BYBIT_{field_name.upper()}"
+            env_var = "BYBIT_API_KEY"
             env_value = os.environ.get(env_var)
             
             if env_value:
@@ -38,7 +78,22 @@ class ExchangeConfig(BaseModel):
             # Only warn in non-testnet mode
             if not values.get('testnet', True):
                 logger.warning(f"{env_var} environment variable not set")
-                
+        return v
+    
+    @validator('api_secret')
+    def validate_api_secret(cls, v, values):
+        """Check if API secret should be loaded from environment variables."""
+        # Allow explicit None for testing
+        if v is None and values.get('name') == 'bybit':
+            env_var = "BYBIT_API_SECRET"
+            env_value = os.environ.get(env_var)
+            
+            if env_value:
+                return env_value
+            
+            # Only warn in non-testnet mode
+            if not values.get('testnet', True):
+                logger.warning(f"{env_var} environment variable not set")
         return v
 
 
@@ -174,4 +229,145 @@ class ConfigManager:
             logger.info(f"Configuration saved to {save_path}")
         except Exception as e:
             logger.error(f"Failed to save configuration: {e}")
-            raise 
+            raise
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get a configuration value by key with nested key support.
+        
+        Args:
+            key: Dot-separated path to the configuration value (e.g. 'exchange.api_key')
+            default: Default value to return if the key doesn't exist
+            
+        Returns:
+            The configuration value or the default if not found
+        """
+        parts = key.split('.')
+        value = self.config_data
+        
+        for part in parts:
+            if isinstance(value, dict) and part in value:
+                value = value[part]
+            else:
+                return default
+        
+        return value
+    
+    def get_int(self, key: str, default: int = 0) -> int:
+        """
+        Get an integer configuration value.
+        
+        Args:
+            key: Dot-separated path to the configuration value
+            default: Default value to return if the key doesn't exist
+            
+        Returns:
+            The integer value or the default if not found
+        """
+        value = self.get(key, default)
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return default
+    
+    def get_float(self, key: str, default: float = 0.0) -> float:
+        """
+        Get a float configuration value.
+        
+        Args:
+            key: Dot-separated path to the configuration value
+            default: Default value to return if the key doesn't exist
+            
+        Returns:
+            The float value or the default if not found
+        """
+        value = self.get(key, default)
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+    
+    def get_bool(self, key: str, default: bool = False) -> bool:
+        """
+        Get a boolean configuration value.
+        
+        Args:
+            key: Dot-separated path to the configuration value
+            default: Default value to return if the key doesn't exist
+            
+        Returns:
+            The boolean value or the default if not found
+        """
+        value = self.get(key, default)
+        if isinstance(value, bool):
+            return value
+        
+        # Handle string values
+        if isinstance(value, str):
+            return value.lower() in ('true', 'yes', '1', 'on')
+        
+        # Try to convert to boolean
+        try:
+            return bool(value)
+        except (ValueError, TypeError):
+            return default
+    
+    def get_list(self, key: str, default: Optional[list] = None) -> list:
+        """
+        Get a list configuration value.
+        
+        Args:
+            key: Dot-separated path to the configuration value
+            default: Default value to return if the key doesn't exist
+            
+        Returns:
+            The list value or the default if not found
+        """
+        default = default or []
+        value = self.get(key, default)
+        
+        if isinstance(value, list):
+            return value
+        
+        # Try to convert to list
+        try:
+            return list(value)
+        except (ValueError, TypeError):
+            return default
+    
+    def get_dict(self, key: str, default: Optional[dict] = None) -> dict:
+        """
+        Get a dictionary configuration value.
+        
+        Args:
+            key: Dot-separated path to the configuration value
+            default: Default value to return if the key doesn't exist
+            
+        Returns:
+            The dictionary value or the default if not found
+        """
+        default = default or {}
+        value = self.get(key, default)
+        
+        if isinstance(value, dict):
+            return value
+        
+        return default
+    
+    def get_path(self, key: str, default: Optional[str] = None) -> str:
+        """
+        Get a file or directory path from the configuration.
+        
+        Args:
+            key: Dot-separated path to the configuration value
+            default: Default value to return if the key doesn't exist
+            
+        Returns:
+            The path string or the default if not found
+        """
+        path_str = self.get(key, default)
+        if path_str is None:
+            return default
+        
+        # Return path as string
+        return str(path_str) 

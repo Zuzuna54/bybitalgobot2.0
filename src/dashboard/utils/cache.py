@@ -10,6 +10,8 @@ import json
 import pickle
 import time
 import hashlib
+import inspect
+import functools
 from typing import Dict, Any, Optional, List, Union, Callable, Tuple
 from functools import wraps
 from datetime import datetime, timedelta
@@ -760,7 +762,7 @@ def cached(ttl_seconds: Optional[int] = 60, key_prefix: str = ""):
         Decorator function
     """
     def decorator(func):
-        @functools.wraps(func)
+        @wraps(func)
         def wrapper(*args, **kwargs):
             # Generate a cache key based on function name, args, and kwargs
             cache_key = f"{key_prefix}:{func.__name__}:{hash(str(args))}-{hash(str(kwargs))}"

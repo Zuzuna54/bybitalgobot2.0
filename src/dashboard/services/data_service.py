@@ -11,6 +11,8 @@ import pandas as pd
 import numpy as np
 from loguru import logger
 
+from src.dashboard.utils.transformers import data_transformer
+
 
 class DashboardDataService:
     """Service for retrieving and processing data for the dashboard."""
@@ -233,82 +235,157 @@ class DashboardDataService:
         Get performance data for the dashboard.
         
         Returns:
-            Dictionary with performance metrics
+            Dictionary containing performance metrics
         """
-        # In standalone mode, return the sample data
-        if self.performance_tracker is None:
-            return self._performance_data
-        
-        # In connected mode, fetch from the performance tracker
-        data = {}
-        
-        try:
-            # Get summary from performance tracker
-            summary = self.performance_tracker.get_performance_summary()
-            
-            # Get detailed metrics
-            data = {
-                "total_return_pct": summary.get("total_return", 0.0),
-                "win_rate": summary.get("win_rate", 0.0),
-                "total_trades": summary.get("total_trades", 0),
-                "profitable_trades": summary.get("profitable_trades", 0),
-                "profit_factor": summary.get("profit_factor", 0.0),
-                "average_trade_return": summary.get("average_trade_profit", 0.0),
-                "max_drawdown_pct": summary.get("max_drawdown", 0.0),
-                "drawdown_duration_days": summary.get("drawdown_duration", 0),
-                "sharpe_ratio": summary.get("sharpe_ratio", 0.0),
-                
-                # Get historical data
-                "equity_history": self.performance_tracker.get_equity_curve(),
-                "daily_returns": self.performance_tracker.get_daily_returns(),
-                "trade_history": self.performance_tracker.get_trade_history()
-            }
-        except Exception as e:
-            logger.error(f"Error getting performance data: {e}")
-            # Fall back to sample data if there's an error
-            data = self._performance_data
-        
-        # Update freshness timestamp
+        # Update timestamp for data freshness tracking
         self._data_updated_at["performance"] = datetime.now()
         
-        return data
+        try:
+            if self.standalone_mode:
+                # Use sample data in standalone mode
+                equity_data = pd.DataFrame({
+                    "date": pd.date_range(end=datetime.now(), periods=90, freq='D'),
+                    "equity": self._generated_equity
+                }).set_index("date")
+                
+                # Use the DataTransformer to transform equity data 
+                return data_transformer.transform_equity_data(equity_data)
+            else:
+                # In connected mode, get data from the performance tracker
+                if self.performance_tracker:
+                    equity_data = None
+                    if hasattr(self.performance_tracker, 'get_equity_curve'):
+                        equity_data = self.performance_tracker.get_equity_curve()
+                    
+                    if equity_data is not None and not equity_data.empty:
+                        # Use the DataTransformer to transform equity data
+                        return data_transformer.transform_equity_data(equity_data)
+                    
+                    # Fallback for older API or missing data
+                    daily_returns = None
+                    if hasattr(self.performance_tracker, 'get_daily_returns'):
+                        daily_returns = self.performance_tracker.get_daily_returns()
+                    
+                    if daily_returns is not None and not daily_returns.empty:
+                        # Construct equity curve from daily returns
+                        initial_equity = 10000  # Assumed starting equity
+                        cumulative_returns = (daily_returns + 1).cumprod() * initial_equity
+                        equity_data = pd.DataFrame({
+                            "equity": cumulative_returns
+                        })
+                        
+                        # Use the DataTransformer to transform constructed equity data
+                        return data_transformer.transform_equity_data(equity_data)
+                    
+                    # Fallback when only metrics are available
+                    try:
+                        total_return_pct = self.performance_tracker.get_total_return() * 100 \
+                            if hasattr(self.performance_tracker, 'get_total_return') else 0
+                        
+                        max_drawdown_pct = self.performance_tracker.get_max_drawdown() * 100 \
+                            if hasattr(self.performance_tracker, 'get_max_drawdown') else 0
+                        
+                        sharpe_ratio = self.performance_tracker.get_sharpe_ratio() \
+                            if hasattr(self.performance_tracker, 'get_sharpe_ratio') else 0
+                        
+                        # Return basic metrics when no time series data is available
+                        return {
+                            "return_pct": total_return_pct,
+                            "max_drawdown_pct": max_drawdown_pct,
+                            "drawdown_duration_days": 0,
+                            "volatility": 0.0,
+                            "sharpe_ratio": sharpe_ratio,
+                            "equity_curve": pd.DataFrame(),
+                            "drawdown_curve": pd.DataFrame(),
+                            "rolling_returns": pd.DataFrame()
+                        }
+                    except Exception as e:
+                        logger.warning(f"Error fetching performance metrics: {str(e)}")
+                        # Fall back to sample data
+                        logger.info("Falling back to sample performance data")
+                        return self._get_sample_performance_data()
+                else:
+                    # Fallback when no performance tracker is available
+                    logger.info("No performance tracker available, using sample data")
+                    return self._get_sample_performance_data()
+        except Exception as e:
+            logger.error(f"Error retrieving performance data: {str(e)}")
+            return self._get_sample_performance_data()
+    
+    def _get_sample_performance_data(self) -> Dict[str, Any]:
+        """
+        Generate sample performance data for standalone mode or fallback.
+        
+        Returns:
+            Dictionary with sample performance metrics
+        """
+        equity_data = pd.DataFrame({
+            "date": pd.date_range(end=datetime.now(), periods=90, freq='D'),
+            "equity": self._generated_equity
+        }).set_index("date")
+        
+        # Use the DataTransformer to standardize the transformation
+        return data_transformer.transform_equity_data(equity_data)
     
     def get_trade_data(self) -> Dict[str, Any]:
         """
-        Get trade data for the dashboard.
+        Get trade and order history data.
         
         Returns:
-            Dictionary with active trades and order history
+            Dictionary containing active trades and order history
         """
-        # In standalone mode, return sample data
-        if self.trade_manager is None:
-            active_trades = []
-            order_history = self._performance_data.get("trade_history", [])[:5]
-            return {"active_trades": active_trades, "order_history": order_history}
-        
-        # In connected mode, fetch from the trade manager
-        data = {}
-        
-        try:
-            # Get active trades
-            active_trades = self.trade_manager.get_active_trades()
-            
-            # Get order history
-            order_history = self.trade_manager.get_order_history(limit=20)
-            
-            data = {
-                "active_trades": active_trades,
-                "order_history": order_history
-            }
-        except Exception as e:
-            logger.error(f"Error getting trade data: {e}")
-            # Fall back to empty data if there's an error
-            data = {"active_trades": [], "order_history": []}
-        
-        # Update freshness timestamp
+        # Update timestamp for data freshness tracking
         self._data_updated_at["trades"] = datetime.now()
         
-        return data
+        try:
+            if self.standalone_mode:
+                # Use sample data in standalone mode
+                sample_trades = self._generate_sample_trade_history(30)
+                # Use the DataTransformer to transform trade data
+                return data_transformer.transform_trade_data(sample_trades)
+            else:
+                # In connected mode, get data from the trade manager
+                if self.trade_manager:
+                    trades = []
+                    
+                    # Get active trades
+                    if hasattr(self.trade_manager, 'get_active_trades'):
+                        active_trades = self.trade_manager.get_active_trades()
+                        if active_trades:
+                            trades.extend(active_trades)
+                    
+                    # Get trade history
+                    if hasattr(self.trade_manager, 'get_closed_trades'):
+                        trade_history = self.trade_manager.get_closed_trades(limit=100)
+                        if trade_history:
+                            trades.extend(trade_history)
+                    
+                    # If we have trades, transform them
+                    if trades:
+                        # Use the DataTransformer to standardize the transformation
+                        return data_transformer.transform_trade_data(trades)
+                    
+                    # Fall back to sample data if no trades found
+                    logger.info("No trades found, using sample data")
+                    return self._get_sample_trade_data()
+                else:
+                    # Fallback when no trade manager is available
+                    logger.info("No trade manager available, using sample data")
+                    return self._get_sample_trade_data()
+        except Exception as e:
+            logger.error(f"Error retrieving trade data: {str(e)}")
+            return self._get_sample_trade_data()
+    
+    def _get_sample_trade_data(self) -> Dict[str, Any]:
+        """
+        Generate sample trade data for standalone mode or fallback.
+        
+        Returns:
+            Dictionary with sample trade metrics
+        """
+        sample_trades = self._generate_sample_trade_history(30)
+        # Use the DataTransformer to standardize the transformation
+        return data_transformer.transform_trade_data(sample_trades)
     
     def get_system_status(self) -> Dict[str, Any]:
         """
@@ -477,4 +554,385 @@ class DashboardDataService:
                     "age_seconds": age_seconds
                 }
         
-        return freshness 
+    def get_orderbook_data(self, symbol: Optional[str] = None, depth: int = 10) -> Dict[str, Any]:
+        """
+        Get orderbook data for the specified symbol.
+        
+        Args:
+            symbol: The symbol to get orderbook data for (optional)
+            depth: The depth of the orderbook to return (default: 10)
+            
+        Returns:
+            Dictionary containing orderbook data with bids, asks, and derived metrics
+        """
+        # Update timestamp for data freshness tracking
+        self._data_updated_at["orderbook"] = datetime.now()
+        
+        try:
+            if self.standalone_mode:
+                # Generate sample orderbook data in standalone mode
+                orderbook = self._generate_sample_orderbook(symbol)
+                # Use the DataTransformer to transform orderbook data
+                return data_transformer.transform_orderbook_data(orderbook, depth)
+            else:
+                # In connected mode, get data from the market data source
+                if self.market_data:
+                    # Get the current symbol if not specified
+                    if symbol is None and hasattr(self.market_data, 'get_current_symbol'):
+                        symbol = self.market_data.get_current_symbol()
+                    elif symbol is None:
+                        # Default symbol
+                        symbol = "BTC/USD"
+                    
+                    # Get orderbook data
+                    if hasattr(self.market_data, 'get_orderbook'):
+                        orderbook = self.market_data.get_orderbook(symbol)
+                        if orderbook:
+                            # Use the DataTransformer to standardize the transformation
+                            return data_transformer.transform_orderbook_data(orderbook, depth)
+                    
+                    # Fall back to sample data if no orderbook found
+                    logger.info(f"No orderbook data found for {symbol}, using sample data")
+                    return self._get_sample_orderbook_data(symbol, depth)
+                else:
+                    # Fallback when no market data source is available
+                    logger.info("No market data source available, using sample data")
+                    return self._get_sample_orderbook_data(symbol, depth)
+        except Exception as e:
+            logger.error(f"Error retrieving orderbook data: {str(e)}")
+            return self._get_sample_orderbook_data(symbol, depth)
+    
+    def _get_sample_orderbook_data(self, symbol: Optional[str] = None, depth: int = 10) -> Dict[str, Any]:
+        """
+        Generate sample orderbook data for standalone mode or fallback.
+        
+        Args:
+            symbol: The symbol to generate orderbook for
+            depth: The depth of the orderbook to return
+            
+        Returns:
+            Dictionary with sample orderbook data
+        """
+        orderbook = self._generate_sample_orderbook(symbol)
+        # Use the DataTransformer to standardize the transformation
+        return data_transformer.transform_orderbook_data(orderbook, depth)
+    
+    def _generate_sample_orderbook(self, symbol: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generate sample orderbook data.
+        
+        Args:
+            symbol: The trading symbol to generate orderbook for
+            
+        Returns:
+            Dictionary with bids and asks
+        """
+        if symbol is None:
+            symbol = "BTC/USD"
+        
+        # Generate a realistic price based on the symbol
+        if "BTC" in symbol:
+            base_price = 35000 + np.random.normal(0, 100)
+        elif "ETH" in symbol:
+            base_price = 2000 + np.random.normal(0, 20)
+        elif "SOL" in symbol:
+            base_price = 75 + np.random.normal(0, 1)
+        else:
+            base_price = 100 + np.random.normal(0, 1)
+        
+        # Generate bids (buy orders) below the base price
+        bids = []
+        for i in range(20):
+            price = base_price * (1 - (i * 0.001) - np.random.uniform(0, 0.0005))
+            size = np.random.uniform(0.1, 5) if "BTC" in symbol else np.random.uniform(1, 50)
+            bids.append([price, size])
+        
+        # Generate asks (sell orders) above the base price
+        asks = []
+        for i in range(20):
+            price = base_price * (1 + (i * 0.001) + np.random.uniform(0, 0.0005))
+            size = np.random.uniform(0.1, 5) if "BTC" in symbol else np.random.uniform(1, 50)
+            asks.append([price, size])
+        
+        return {
+            "symbol": symbol,
+            "bids": sorted(bids, key=lambda x: x[0], reverse=True),  # Sort bids in descending order
+            "asks": sorted(asks, key=lambda x: x[0]),  # Sort asks in ascending order
+            "timestamp": datetime.now().timestamp()
+        }
+    
+    def get_strategy_data(self, strategy_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get strategy data and statistics.
+        
+        Args:
+            strategy_id: Optional strategy ID to filter by
+            
+        Returns:
+            Dictionary containing strategy data and performance metrics
+        """
+        # Update timestamp for data freshness tracking
+        self._data_updated_at["strategy"] = datetime.now()
+        
+        try:
+            if self.standalone_mode:
+                # Use sample data in standalone mode
+                strategy_data = self._generate_sample_strategy_data(strategy_id)
+                # Use the DataTransformer to transform strategy data
+                return data_transformer.transform_strategy_data(strategy_data)
+            else:
+                # In connected mode, get data from the strategy manager
+                if self.strategy_manager:
+                    strategy_data = {}
+                    
+                    # Get strategy data
+                    if strategy_id is not None and hasattr(self.strategy_manager, 'get_strategy'):
+                        strategy_data = self.strategy_manager.get_strategy(strategy_id)
+                    elif hasattr(self.strategy_manager, 'get_active_strategy'):
+                        strategy_data = self.strategy_manager.get_active_strategy()
+                    elif hasattr(self.strategy_manager, 'get_strategies'):
+                        strategies = self.strategy_manager.get_strategies()
+                        if strategies and len(strategies) > 0:
+                            # Get the first strategy
+                            strategy_data = strategies[0]
+                    
+                    # If we have strategy data, transform it
+                    if strategy_data:
+                        # Use the DataTransformer to standardize the transformation
+                        return data_transformer.transform_strategy_data(strategy_data)
+                    
+                    # Fall back to sample data if no strategy found
+                    logger.info("No strategy data found, using sample data")
+                    return self._get_sample_strategy_data(strategy_id)
+                else:
+                    # Fallback when no strategy manager is available
+                    logger.info("No strategy manager available, using sample data")
+                    return self._get_sample_strategy_data(strategy_id)
+        except Exception as e:
+            logger.error(f"Error retrieving strategy data: {str(e)}")
+            return self._get_sample_strategy_data(strategy_id)
+    
+    def _get_sample_strategy_data(self, strategy_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generate sample strategy data for standalone mode or fallback.
+        
+        Args:
+            strategy_id: Optional strategy ID
+            
+        Returns:
+            Dictionary with sample strategy data
+        """
+        strategy_data = self._generate_sample_strategy_data(strategy_id)
+        # Use the DataTransformer to standardize the transformation
+        return data_transformer.transform_strategy_data(strategy_data)
+    
+    def _generate_sample_strategy_data(self, strategy_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generate sample strategy data.
+        
+        Args:
+            strategy_id: Optional strategy ID to use
+            
+        Returns:
+            Dictionary with sample strategy information
+        """
+        if strategy_id is None:
+            # Generate a random strategy ID if not provided
+            strategies = ["momentum", "mean_reversion", "trend_following", "breakout"]
+            strategy_id = np.random.choice(strategies)
+        
+        # Generate strategy name and description
+        if strategy_id == "momentum":
+            name = "Momentum Strategy"
+            description = "Capitalizes on continuation of existing market trends"
+        elif strategy_id == "mean_reversion":
+            name = "Mean Reversion Strategy"
+            description = "Assumes prices will revert to their historical average"
+        elif strategy_id == "trend_following":
+            name = "Trend Following Strategy"
+            description = "Uses indicators to identify and follow market trends"
+        elif strategy_id == "breakout":
+            name = "Breakout Strategy"
+            description = "Enters trades when price breaks support or resistance levels"
+        else:
+            name = f"Strategy {strategy_id}"
+            description = "Custom trading strategy"
+        
+        # Generate random performance metrics
+        win_rate = np.random.uniform(0.4, 0.7)
+        total_trades = np.random.randint(50, 200)
+        profitable_trades = int(total_trades * win_rate)
+        losing_trades = total_trades - profitable_trades
+        
+        avg_profit = np.random.uniform(1.5, 3.0)
+        avg_loss = np.random.uniform(0.8, 1.5)
+        total_profit = (profitable_trades * avg_profit) - (losing_trades * avg_loss)
+        profit_factor = (profitable_trades * avg_profit) / (losing_trades * avg_loss) if losing_trades > 0 else 0
+        
+        # Generate random parameters based on strategy type
+        parameters = {}
+        if strategy_id == "momentum":
+            parameters = {
+                "lookback_period": np.random.randint(10, 30),
+                "threshold": np.random.uniform(0.5, 2.0),
+                "exit_after_bars": np.random.randint(5, 15)
+            }
+        elif strategy_id == "mean_reversion":
+            parameters = {
+                "ma_period": np.random.randint(20, 50),
+                "std_dev_threshold": np.random.uniform(1.5, 3.0),
+                "profit_target_pct": np.random.uniform(1.0, 3.0)
+            }
+        elif strategy_id == "trend_following":
+            parameters = {
+                "fast_ma": np.random.randint(5, 20),
+                "slow_ma": np.random.randint(20, 50),
+                "trailing_stop_pct": np.random.uniform(1.0, 3.0)
+            }
+        elif strategy_id == "breakout":
+            parameters = {
+                "breakout_period": np.random.randint(20, 40),
+                "volume_filter": np.random.uniform(1.2, 2.0),
+                "max_risk_pct": np.random.uniform(0.5, 2.0)
+            }
+        
+        # Generate sample indicators
+        indicators = []
+        if strategy_id == "momentum":
+            indicators.append({
+                "name": "RSI",
+                "value": np.random.uniform(30, 70),
+                "type": "oscillator",
+                "timestamp": (datetime.now() - timedelta(minutes=np.random.randint(1, 10))).timestamp()
+            })
+            indicators.append({
+                "name": "Momentum",
+                "value": np.random.uniform(-10, 10),
+                "type": "momentum",
+                "timestamp": (datetime.now() - timedelta(minutes=np.random.randint(1, 10))).timestamp()
+            })
+        elif strategy_id == "mean_reversion":
+            indicators.append({
+                "name": "Z-Score",
+                "value": np.random.uniform(-2.5, 2.5),
+                "type": "mean_reversion",
+                "timestamp": (datetime.now() - timedelta(minutes=np.random.randint(1, 10))).timestamp()
+            })
+            indicators.append({
+                "name": "Bollinger %B",
+                "value": np.random.uniform(0, 1),
+                "type": "oscillator",
+                "timestamp": (datetime.now() - timedelta(minutes=np.random.randint(1, 10))).timestamp()
+            })
+        elif strategy_id == "trend_following":
+            indicators.append({
+                "name": "MACD",
+                "value": np.random.uniform(-5, 5),
+                "type": "trend",
+                "timestamp": (datetime.now() - timedelta(minutes=np.random.randint(1, 10))).timestamp()
+            })
+            indicators.append({
+                "name": "ADX",
+                "value": np.random.uniform(10, 50),
+                "type": "trend_strength",
+                "timestamp": (datetime.now() - timedelta(minutes=np.random.randint(1, 10))).timestamp()
+            })
+        elif strategy_id == "breakout":
+            indicators.append({
+                "name": "ATR",
+                "value": np.random.uniform(1, 10),
+                "type": "volatility",
+                "timestamp": (datetime.now() - timedelta(minutes=np.random.randint(1, 10))).timestamp()
+            })
+            indicators.append({
+                "name": "Volume Ratio",
+                "value": np.random.uniform(0.5, 3),
+                "type": "volume",
+                "timestamp": (datetime.now() - timedelta(minutes=np.random.randint(1, 10))).timestamp()
+            })
+        
+        # Generate sample signals
+        signals = []
+        directions = ["buy", "sell", "neutral"]
+        signal_types = ["entry", "exit", "warning", "filter"]
+        
+        # Add 2-3 sample signals
+        for _ in range(np.random.randint(2, 4)):
+            direction = np.random.choice(directions, p=[0.4, 0.4, 0.2])
+            signal_type = np.random.choice(signal_types, p=[0.4, 0.3, 0.2, 0.1])
+            signals.append({
+                "type": signal_type,
+                "direction": direction,
+                "strength": np.random.uniform(0.1, 1.0),
+                "timestamp": (datetime.now() - timedelta(minutes=np.random.randint(1, 60))).timestamp(),
+                "symbol": np.random.choice(["BTC/USD", "ETH/USD", "SOL/USD"])
+            })
+        
+        # Generate sample positions (0-2 positions)
+        positions = []
+        symbols = ["BTC/USD", "ETH/USD", "SOL/USD", "DOGE/USD"]
+        directions = ["long", "short"]
+        
+        # Randomly decide if we have any positions
+        if np.random.random() > 0.3:
+            # Add 1-2 sample positions
+            for _ in range(np.random.randint(1, 3)):
+                symbol = np.random.choice(symbols)
+                direction = np.random.choice(directions)
+                
+                if symbol == "BTC/USD":
+                    entry_price = np.random.uniform(30000, 40000)
+                    current_price = entry_price * (1 + np.random.uniform(-0.05, 0.05))
+                    size = np.random.uniform(0.1, 1.0)
+                elif symbol == "ETH/USD":
+                    entry_price = np.random.uniform(1800, 2200)
+                    current_price = entry_price * (1 + np.random.uniform(-0.05, 0.05))
+                    size = np.random.uniform(1, 5)
+                elif symbol == "SOL/USD":
+                    entry_price = np.random.uniform(60, 90)
+                    current_price = entry_price * (1 + np.random.uniform(-0.05, 0.05))
+                    size = np.random.uniform(5, 20)
+                else:
+                    entry_price = np.random.uniform(0.05, 0.15)
+                    current_price = entry_price * (1 + np.random.uniform(-0.05, 0.05))
+                    size = np.random.uniform(1000, 5000)
+                
+                # Calculate profit/loss
+                if direction == "long":
+                    profit_loss = (current_price - entry_price) * size
+                    profit_loss_pct = (current_price - entry_price) / entry_price * 100
+                else:
+                    profit_loss = (entry_price - current_price) * size
+                    profit_loss_pct = (entry_price - current_price) / entry_price * 100
+                
+                positions.append({
+                    "symbol": symbol,
+                    "direction": direction,
+                    "size": size,
+                    "entry_price": entry_price,
+                    "current_price": current_price,
+                    "profit_loss": profit_loss,
+                    "profit_loss_pct": profit_loss_pct,
+                    "open_time": (datetime.now() - timedelta(hours=np.random.randint(1, 48))).timestamp()
+                })
+        
+        return {
+            "id": strategy_id,
+            "name": name,
+            "description": description,
+            "status": np.random.choice(["active", "paused", "stopped"], p=[0.7, 0.2, 0.1]),
+            "parameters": parameters,
+            "performance": {
+                "win_rate": win_rate,
+                "profit_factor": profit_factor,
+                "total_trades": total_trades,
+                "profitable_trades": profitable_trades,
+                "losing_trades": losing_trades,
+                "average_profit": avg_profit,
+                "average_loss": avg_loss,
+                "total_profit": total_profit
+            },
+            "indicators": indicators,
+            "signals": signals,
+            "positions": positions
+        } 

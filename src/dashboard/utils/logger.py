@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, Union, List
 import datetime
 from pathlib import Path
 
-from .config_manager import get_config_manager
+from src.config.config_manager import get_config_manager
 
 # Configure logging defaults
 DEFAULT_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

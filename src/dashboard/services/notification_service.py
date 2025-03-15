@@ -178,11 +178,12 @@ def register_notification_callbacks(app: dash.Dash) -> None:
         # Handle dismiss events
         if "n_dismiss" in triggered:
             # Get the indices of dismissed toasts
-            indices = [
-                trigger["index"]
-                for trigger in ctx.triggered_id_indices
-                if trigger.get("type") == "notification-toast"
-            ]
+            indices = []
+            if ctx.triggered:
+                # Newer Dash versions use ctx.triggered_id which may be a dict for pattern-matching callbacks
+                for trigger in ctx.triggered:
+                    if isinstance(trigger['prop_id'], dict) and trigger['prop_id'].get('type') == 'notification-toast':
+                        indices.append(trigger['prop_id'].get('index'))
             
             # Remove dismissed notifications
             current_notifications = [
