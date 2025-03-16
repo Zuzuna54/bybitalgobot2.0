@@ -13,12 +13,6 @@ import dash_bootstrap_components as dbc
 from loguru import logger
 
 from src.dashboard.router.callback_registry import callback_registrar
-from src.dashboard.components.orderbook.visualization import (
-    render_imbalance_indicator,
-    render_liquidity_ratio,
-    render_support_resistance_levels,
-    render_execution_recommendations,
-)
 from src.dashboard.components.orderbook.data_processing import (
     calculate_orderbook_imbalance,
     calculate_liquidity_ratio,
@@ -30,6 +24,15 @@ from src.dashboard.services.chart_service import (
     create_orderbook_heatmap,
     create_orderbook_imbalance_chart,
     create_liquidity_profile_chart,
+    render_imbalance_indicator,
+    render_liquidity_ratio,
+    render_support_resistance_levels,
+    render_execution_recommendations,
+)
+from src.dashboard.components.error_display import (
+    callback_error_handler,
+    create_empty_state,
+    create_generic_error_message,
 )
 
 
@@ -64,50 +67,62 @@ def register_orderbook_callbacks(
         ],
         [Input("orderbook-update-interval", "n_intervals")],
     )
+    @callback_error_handler
     def update_available_symbols_and_status(n_intervals):
         """
-        Update available symbols and websocket status.
+        Update the available symbols and websocket status stores.
 
         Args:
             n_intervals: Number of interval updates
 
         Returns:
-            Tuple of available symbols, websocket status, and data freshness
+            Tuple of (available_symbols, websocket_status, data_freshness)
         """
+        # Set the number of outputs for the error handler
+        update_available_symbols_and_status._dash_output_count = 3
+
         try:
-            # Get orderbook data for all symbols
-            orderbook_data = get_orderbook_data_func()
+            # Get available symbols from the data service
+            symbols_data = get_orderbook_data_func(symbol=None, depth=None)
 
-            # Extract available symbols
-            available_symbols = []
-            websocket_status = {"connected": False, "details": "Not connected"}
-            freshness_data = {}
+            available_symbols = symbols_data.get("available_symbols", [])
+            websocket_status = symbols_data.get(
+                "websocket_status",
+                {
+                    "connected": False,
+                    "last_update": None,
+                    "details": "No data available",
+                },
+            )
+            data_freshness = symbols_data.get(
+                "data_freshness",
+                {
+                    "orderbook": {"last_update": None, "is_fresh": False},
+                    "trades": {"last_update": None, "is_fresh": False},
+                    "levels": {"last_update": None, "is_fresh": False},
+                },
+            )
 
-            if isinstance(orderbook_data, dict):
-                # Extract available symbols
-                available_symbols = orderbook_data.get("available_symbols", [])
+            return available_symbols, websocket_status, data_freshness
 
-                # Extract websocket status
-                websocket_status = orderbook_data.get(
-                    "websocket_status",
-                    {
-                        "connected": False,
-                        "details": "No connection information available",
-                    },
-                )
-
-                # Extract data freshness
-                freshness_data = orderbook_data.get("freshness", {})
-
-            return available_symbols, websocket_status, freshness_data
         except Exception as e:
-            logger.error(f"Error updating available symbols: {str(e)}")
-            return [], {"connected": False, "details": f"Error: {str(e)}"}, {}
+            logger.exception(f"Error updating symbols and status: {str(e)}")
+            # Return empty defaults
+            return (
+                [],
+                {
+                    "connected": False,
+                    "last_update": None,
+                    "details": f"Error: {str(e)}",
+                },
+                {},
+            )
 
     @app.callback(
         Output("orderbook-symbol-dropdown", "options"),
         [Input("available-symbols-store", "data")],
     )
+    @callback_error_handler
     def update_symbol_dropdown(available_symbols):
         """
         Update the symbol dropdown options.
@@ -118,14 +133,10 @@ def register_orderbook_callbacks(
         Returns:
             List of dropdown options
         """
-        try:
-            if not available_symbols:
-                return [{"label": "No symbols available", "value": ""}]
+        if not available_symbols:
+            return []
 
-            return [{"label": symbol, "value": symbol} for symbol in available_symbols]
-        except Exception as e:
-            logger.error(f"Error updating symbol dropdown: {str(e)}")
-            return [{"label": f"Error: {str(e)}", "value": ""}]
+        return [{"label": symbol, "value": symbol} for symbol in available_symbols]
 
     @app.callback(
         [

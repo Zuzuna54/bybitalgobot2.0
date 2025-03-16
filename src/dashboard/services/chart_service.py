@@ -13,6 +13,9 @@ import plotly.graph_objects as go
 import plotly.express as px
 from loguru import logger
 from plotly.subplots import make_subplots
+import colorsys
+from dash import html, dcc
+import dash_bootstrap_components as dbc
 
 
 # Standard chart theme configuration
@@ -1737,3 +1740,612 @@ def create_strategy_correlation_matrix(
     )
 
     return fig
+
+
+# -------------------------
+# ORDERBOOK VISUALIZATION FUNCTIONS
+# -------------------------
+
+
+# Alias for backward compatibility
+def create_orderbook_depth_graph(*args, **kwargs):
+    """
+    DEPRECATED: Use create_orderbook_depth_chart instead.
+
+    This function is kept for backward compatibility and calls
+    create_orderbook_depth_chart.
+    """
+    import warnings
+
+    warnings.warn(
+        "create_orderbook_depth_graph is deprecated. "
+        "Use create_orderbook_depth_chart instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return create_orderbook_depth_chart(*args, **kwargs)
+
+
+def render_imbalance_indicator(imbalance: float) -> html.Div:
+    """
+    Render the order book imbalance indicator.
+
+    Args:
+        imbalance: Imbalance score (-1.0 to 1.0)
+
+    Returns:
+        HTML Div with imbalance visualization
+    """
+    if imbalance is None:
+        return html.Div("No data available")
+
+    # Calculate color based on imbalance
+    if imbalance > 0:
+        # Buy pressure (green)
+        color = f"rgba(50, 171, 96, {min(abs(imbalance) + 0.3, 1.0)})"
+        label = "Buy Pressure"
+    else:
+        # Sell pressure (red)
+        color = f"rgba(220, 53, 69, {min(abs(imbalance) + 0.3, 1.0)})"
+        label = "Sell Pressure"
+
+    # Calculate width percentage
+    width_pct = abs(imbalance) * 100
+
+    # Create indicator components
+    return html.Div(
+        [
+            html.H4(f"{imbalance:.2f}", className="text-center"),
+            html.P(label, className="text-center"),
+            html.Div(
+                [
+                    html.Div(
+                        className="imbalance-bar",
+                        style={
+                            "width": f"{width_pct}%",
+                            "background-color": color,
+                            "height": "10px",
+                            "border-radius": "5px",
+                        },
+                    )
+                ],
+                className="imbalance-container",
+            ),
+        ],
+        className="orderbook-imbalance-indicator",
+    )
+
+
+def render_liquidity_ratio(buy_sell_ratio: float) -> html.Div:
+    """
+    Render the liquidity ratio indicator.
+
+    Args:
+        buy_sell_ratio: Ratio of buy to sell liquidity (> 1 means more buy liquidity)
+
+    Returns:
+        HTML Div with liquidity ratio visualization
+    """
+    if buy_sell_ratio is None:
+        return html.Div("No data available")
+
+    # Calculate percentage for the gauge display
+    if buy_sell_ratio > 1:
+        # More buy liquidity
+        pct = min(buy_sell_ratio / 2, 1) * 50 + 50
+        color = "rgba(50, 171, 96, 0.8)"  # Green
+        label = "Buy Liquidity Dominance"
+    else:
+        # More sell liquidity
+        pct = max(buy_sell_ratio, 0) * 50
+        color = "rgba(220, 53, 69, 0.8)"  # Red
+        label = "Sell Liquidity Dominance"
+
+    # Create gauge indicator
+    return html.Div(
+        [
+            html.H4(f"{buy_sell_ratio:.2f}x", className="text-center"),
+            html.P(label, className="text-center"),
+            html.Div(
+                [
+                    html.Div(
+                        className="liquidity-gauge",
+                        style={"transform": f"rotate({pct * 1.8}deg)"},
+                    ),
+                    html.Div(className="liquidity-gauge-scale"),
+                ],
+                className="liquidity-gauge-container",
+            ),
+        ],
+        className="liquidity-ratio-indicator",
+    )
+
+
+def render_support_resistance_levels(levels_data: Dict[str, Any]) -> html.Div:
+    """
+    Render support and resistance levels information.
+
+    Args:
+        levels_data: Dictionary containing support and resistance level information
+
+    Returns:
+        HTML Div with support and resistance levels
+    """
+    if not levels_data or not any(
+        [
+            levels_data.get("support_levels", []),
+            levels_data.get("resistance_levels", []),
+        ]
+    ):
+        return html.Div(
+            [
+                html.P(
+                    "No significant support or resistance levels detected",
+                    className="text-center text-muted",
+                )
+            ]
+        )
+
+    support_levels = levels_data.get("support_levels", [])
+    resistance_levels = levels_data.get("resistance_levels", [])
+
+    # Create support levels list
+    support_items = []
+    for level in sorted(support_levels, key=lambda x: x.get("price", 0), reverse=True):
+        price = level.get("price", 0)
+        strength = level.get("strength", 0.5)
+        distance = level.get("distance_pct", 0)
+
+        support_items.append(
+            dbc.ListGroupItem(
+                [
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                [
+                                    html.Span(
+                                        f"${price:.2f}",
+                                        className="fw-bold me-2",
+                                    ),
+                                    html.Span(
+                                        f"{distance:.2f}% away",
+                                        className="small text-muted",
+                                    ),
+                                ],
+                                width=6,
+                            ),
+                            dbc.Col(
+                                render_level_strength_indicator(
+                                    strength, is_support=True
+                                ),
+                                width=6,
+                            ),
+                        ]
+                    )
+                ],
+                className="support-level-item",
+            )
+        )
+
+    # Create resistance levels list
+    resistance_items = []
+    for level in sorted(resistance_levels, key=lambda x: x.get("price", 0)):
+        price = level.get("price", 0)
+        strength = level.get("strength", 0.5)
+        distance = level.get("distance_pct", 0)
+
+        resistance_items.append(
+            dbc.ListGroupItem(
+                [
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                [
+                                    html.Span(
+                                        f"${price:.2f}",
+                                        className="fw-bold me-2",
+                                    ),
+                                    html.Span(
+                                        f"{distance:.2f}% away",
+                                        className="small text-muted",
+                                    ),
+                                ],
+                                width=6,
+                            ),
+                            dbc.Col(
+                                render_level_strength_indicator(
+                                    strength, is_support=False
+                                ),
+                                width=6,
+                            ),
+                        ]
+                    )
+                ],
+                className="resistance-level-item",
+            )
+        )
+
+    return html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            html.H6("Resistance Levels", className="text-center"),
+                            (
+                                dbc.ListGroup(resistance_items, className="mb-3")
+                                if resistance_items
+                                else html.P(
+                                    "No resistance detected",
+                                    className="text-center text-muted small",
+                                )
+                            ),
+                        ],
+                        md=6,
+                    ),
+                    dbc.Col(
+                        [
+                            html.H6("Support Levels", className="text-center"),
+                            (
+                                dbc.ListGroup(support_items, className="mb-3")
+                                if support_items
+                                else html.P(
+                                    "No support detected",
+                                    className="text-center text-muted small",
+                                )
+                            ),
+                        ],
+                        md=6,
+                    ),
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [create_level_confluence_chart(levels_data)],
+                        width=12,
+                    )
+                ]
+            ),
+        ]
+    )
+
+
+def render_level_strength_indicator(strength: float, is_support: bool) -> html.Div:
+    """
+    Render an indicator for the strength of a support/resistance level.
+
+    Args:
+        strength: Strength value (0.0 - 1.0)
+        is_support: Whether this is a support (True) or resistance (False) level
+
+    Returns:
+        HTML Div with strength indicator
+    """
+    # Determine color based on strength
+    hue = 120 * strength  # 0 = red, 120 = green
+    rgb = colorsys.hsv_to_rgb(hue / 360, 0.8, 0.8)
+    color = f"rgba({int(rgb[0] * 255)}, {int(rgb[1] * 255)}, {int(rgb[2] * 255)}, 0.8)"
+
+    # Determine label
+    if strength < 0.33:
+        label = "Weak"
+    elif strength < 0.66:
+        label = "Moderate"
+    else:
+        label = "Strong"
+
+    level_type = "Support" if is_support else "Resistance"
+
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Div(
+                        style={
+                            "width": f"{strength * 100}%",
+                            "background-color": color,
+                            "height": "8px",
+                            "border-radius": "4px",
+                        }
+                    )
+                ],
+                className="strength-bar",
+            ),
+            html.Div(
+                f"{label} {level_type}",
+                className="small text-end",
+            ),
+        ],
+        className="level-strength-indicator",
+    )
+
+
+def create_level_confluence_chart(levels_data: Dict[str, Any]) -> dcc.Graph:
+    """
+    Create a chart showing support and resistance level confluence.
+
+    Args:
+        levels_data: Dictionary containing support and resistance levels information
+
+    Returns:
+        Dash Graph component with confluence visualization
+    """
+    # Create the figure
+    fig = go.Figure()
+
+    # Add price axis
+    if "current_price" in levels_data:
+        current_price = levels_data["current_price"]
+    else:
+        current_price = 0
+        if levels_data.get("support_levels"):
+            current_price = max(
+                [s.get("price", 0) for s in levels_data["support_levels"]]
+            )
+        elif levels_data.get("resistance_levels"):
+            current_price = min(
+                [r.get("price", 0) for r in levels_data["resistance_levels"]]
+            )
+
+    # Set price range to +/- 10% of current price
+    price_range = current_price * 0.1
+    y_min = current_price - price_range
+    y_max = current_price + price_range
+
+    # Add horizontal line for current price
+    fig.add_shape(
+        type="line",
+        x0=0,
+        x1=1,
+        y0=current_price,
+        y1=current_price,
+        line=dict(color="rgba(0, 0, 0, 0.5)", width=1, dash="dot"),
+    )
+    fig.add_annotation(
+        x=1.01,
+        y=current_price,
+        text=f"${current_price:.2f}",
+        showarrow=False,
+        xref="paper",
+        yref="y",
+        font=dict(size=10),
+    )
+
+    # Add support and resistance levels
+    if "support_levels" in levels_data:
+        for level in levels_data["support_levels"]:
+            price = level.get("price", 0)
+            strength = level.get("strength", 0.5)
+
+            # Skip levels outside our range
+            if price < y_min or price > y_max:
+                continue
+
+            # Color based on strength
+            hue = 120 * strength  # 0 = red, 120 = green
+            rgb = colorsys.hsv_to_rgb(hue / 360, 0.8, 0.8)
+            color = f"rgba({int(rgb[0] * 255)}, {int(rgb[1] * 255)}, {int(rgb[2] * 255)}, 0.8)"
+
+            # Line width based on strength
+            width = 1 + strength * 3
+
+            # Add line
+            fig.add_shape(
+                type="line",
+                x0=0,
+                x1=1,
+                y0=price,
+                y1=price,
+                line=dict(color=color, width=width),
+            )
+
+            # Add label
+            fig.add_annotation(
+                x=0,
+                y=price,
+                text=f"S: ${price:.2f}",
+                showarrow=False,
+                xanchor="left",
+                xref="paper",
+                yref="y",
+                font=dict(size=10, color="green"),
+            )
+
+    if "resistance_levels" in levels_data:
+        for level in levels_data["resistance_levels"]:
+            price = level.get("price", 0)
+            strength = level.get("strength", 0.5)
+
+            # Skip levels outside our range
+            if price < y_min or price > y_max:
+                continue
+
+            # Color based on strength
+            hue = 120 * strength  # 0 = red, 120 = green
+            rgb = colorsys.hsv_to_rgb(hue / 360, 0.8, 0.8)
+            color = f"rgba({int(rgb[0] * 255)}, {int(rgb[1] * 255)}, {int(rgb[2] * 255)}, 0.8)"
+
+            # Line width based on strength
+            width = 1 + strength * 3
+
+            # Add line
+            fig.add_shape(
+                type="line",
+                x0=0,
+                x1=1,
+                y0=price,
+                y1=price,
+                line=dict(color=color, width=width, dash="solid"),
+            )
+
+            # Add label
+            fig.add_annotation(
+                x=1,
+                y=price,
+                text=f"R: ${price:.2f}",
+                showarrow=False,
+                xanchor="right",
+                xref="paper",
+                yref="y",
+                font=dict(size=10, color="red"),
+            )
+
+    # Update layout
+    fig.update_layout(
+        title="Price Level Confluence",
+        height=250,
+        margin=dict(l=0, r=0, t=30, b=0),
+        showlegend=False,
+        xaxis=dict(
+            showticklabels=False,
+            showgrid=False,
+            zeroline=False,
+        ),
+        yaxis=dict(
+            title="Price",
+            showgrid=True,
+            gridcolor="rgba(0, 0, 0, 0.1)",
+            range=[y_min, y_max],
+        ),
+        plot_bgcolor="white",
+    )
+
+    return dcc.Graph(figure=fig, config={"displayModeBar": False})
+
+
+def render_execution_recommendations(
+    recommendations: Dict[str, Any], orderbook: Dict[str, Any] = None
+) -> html.Div:
+    """
+    Render execution recommendations based on orderbook analysis.
+
+    Args:
+        recommendations: Dictionary containing execution recommendations
+        orderbook: Optional orderbook data for additional context
+
+    Returns:
+        HTML Div with execution recommendations
+    """
+    if not recommendations or not recommendations.get("actions"):
+        return html.Div(
+            [
+                html.P(
+                    "No execution recommendations available",
+                    className="text-center text-muted",
+                )
+            ]
+        )
+
+    actions = recommendations.get("actions", [])
+
+    # Create recommendation cards
+    cards = []
+    for action in actions:
+        action_type = action.get("type", "").capitalize()
+        description = action.get("description", "")
+        confidence = action.get("confidence", 0.5)
+        price = action.get("price")
+        size = action.get("size")
+
+        # Determine color based on action type
+        if action_type.lower() == "buy":
+            color = "success"
+            icon = "arrow-up"
+        elif action_type.lower() == "sell":
+            color = "danger"
+            icon = "arrow-down"
+        else:
+            color = "info"
+            icon = "info-circle"
+
+        # Determine confidence label
+        if confidence < 0.33:
+            conf_label = "Low Confidence"
+            conf_color = "danger"
+        elif confidence < 0.66:
+            conf_label = "Medium Confidence"
+            conf_color = "warning"
+        else:
+            conf_label = "High Confidence"
+            conf_color = "success"
+
+        # Create recommendation card
+        card = dbc.Card(
+            [
+                dbc.CardHeader(
+                    [
+                        html.Div(
+                            [
+                                html.I(
+                                    className=f"fas fa-{icon} me-2",
+                                ),
+                                html.Span(action_type, className="fw-bold"),
+                            ],
+                            className=f"text-{color} d-flex align-items-center",
+                        )
+                    ]
+                ),
+                dbc.CardBody(
+                    [
+                        html.P(description, className="recommendation-description"),
+                        html.Div(
+                            [
+                                html.Span(
+                                    f"Confidence: {confidence:.2f}",
+                                    className="me-2 small",
+                                ),
+                                dbc.Badge(
+                                    conf_label,
+                                    color=conf_color,
+                                    className="me-1",
+                                ),
+                            ],
+                            className="mb-2",
+                        ),
+                        html.Div(
+                            [
+                                html.Strong(
+                                    "Suggested Price: ", className="me-1 small"
+                                ),
+                                html.Span(
+                                    f"${price:.2f}" if price else "Market",
+                                    className="me-3 small",
+                                ),
+                                html.Strong("Size: ", className="me-1 small"),
+                                html.Span(
+                                    f"{size}" if size else "Default",
+                                    className="small",
+                                ),
+                            ],
+                            className="recommendation-details",
+                        ),
+                    ]
+                ),
+            ],
+            className="mb-2 recommendation-card",
+        )
+        cards.append(card)
+
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.P(
+                        "Trading recommendations based on current market conditions",
+                        className="text-muted small mb-3",
+                    ),
+                    *cards,
+                    html.Div(
+                        [
+                            html.P(
+                                "These recommendations are automated suggestions only and should be used as part of a broader trading strategy.",
+                                className="text-muted fst-italic small",
+                            )
+                        ],
+                        className="mt-3",
+                    ),
+                ]
+            )
+        ]
+    )
