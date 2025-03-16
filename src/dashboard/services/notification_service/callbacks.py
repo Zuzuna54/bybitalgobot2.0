@@ -3,7 +3,7 @@ Callbacks for the notification service
 """
 
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from dash import html
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State, ALL
@@ -18,29 +18,36 @@ from src.dashboard.services.notification_service.toast import (
 from src.dashboard.services.notification_service.constants import MAX_NOTIFICATIONS
 
 
-def register_notification_callbacks(app: dash.Dash) -> None:
+def register_notification_callbacks(
+    app: dash.Dash, data_service: Optional[Any] = None, **kwargs
+) -> None:
     """
     Register notification callbacks with the Dash app.
 
     Args:
         app: Dash application instance
+        data_service: Optional data service instance (not used but required for callback registry)
+        **kwargs: Additional keyword arguments
     """
+
     # Register callback to update notifications
-    callback_registrar.register_callback(
-        app,
+    @app.callback(
         Output("notification-container", "children"),
         Input("notification-store", "data"),
         prevent_initial_call=True,
-    )(update_notifications)
+    )
+    def _update_notifications(notifications):
+        return update_notifications(notifications)
 
     # Register callback to manage notifications
-    callback_registrar.register_callback(
-        app,
+    @app.callback(
         Output("notification-store", "data"),
         Input({"type": "notification-toast", "index": ALL}, "n_clicks"),
         State("notification-store", "data"),
         prevent_initial_call=True,
-    )(manage_notifications)
+    )
+    def _manage_notifications(n_clicks, current_notifications):
+        return manage_notifications(n_clicks, current_notifications)
 
 
 def update_notifications(notifications: List[Dict[str, Any]]) -> List[dbc.Toast]:
