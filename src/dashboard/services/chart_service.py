@@ -2349,3 +2349,65 @@ def render_execution_recommendations(
             )
         ]
     )
+
+
+def create_daily_performance_graph(daily_summary: pd.DataFrame) -> go.Figure:
+    """
+    Create a graph of daily performance.
+
+    Args:
+        daily_summary: DataFrame with daily performance data
+
+    Returns:
+        Plotly figure object
+    """
+    if daily_summary is None or daily_summary.empty:
+        return create_empty_chart("Daily Performance")
+
+    # Make a copy to avoid modifying the original
+    daily_data = daily_summary.copy()
+
+    # Create figure with dual y-axes
+    fig = go.Figure()
+
+    # Add PnL bars
+    fig.add_trace(
+        go.Bar(
+            x=daily_data.index,
+            y=daily_data["pnl"],
+            name="Daily P&L",
+            marker_color=[
+                "rgba(46, 204, 113, 0.8)" if pnl >= 0 else "rgba(231, 76, 60, 0.8)"
+                for pnl in daily_data["pnl"]
+            ],
+        )
+    )
+
+    # Add trade count line
+    if "trade_count" in daily_data.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=daily_data.index,
+                y=daily_data["trade_count"],
+                name="Trade Count",
+                mode="lines+markers",
+                marker=dict(size=8, color="rgba(52, 152, 219, 0.8)"),
+                line=dict(width=2, color="rgba(52, 152, 219, 0.8)"),
+                yaxis="y2",
+            )
+        )
+
+    # Apply standard theme
+    fig = apply_chart_theme(fig, "Daily Performance Summary")
+
+    # Update layout with additional settings
+    fig.update_layout(
+        xaxis_title="Date",
+        yaxis_title="P&L ($)",
+        yaxis2=dict(
+            title="Trade Count", overlaying="y", side="right", rangemode="tozero"
+        ),
+        height=300,
+    )
+
+    return fig
