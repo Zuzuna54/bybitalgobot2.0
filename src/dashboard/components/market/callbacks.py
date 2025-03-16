@@ -1,18 +1,18 @@
 """
-Market Component Callbacks
+Market Panel Callbacks for the Trading Dashboard
 
-This module registers callbacks for market data components.
+This module provides callbacks for updating the market panel components.
 """
 
-from typing import Dict, Any, Callable, Optional
+from typing import Dict, Any, List, Callable, Optional
 import dash
 from dash import html, dcc, callback, Input, Output, State
-import plotly.graph_objs as go
+import plotly.graph_objects as go
 import pandas as pd
 from loguru import logger
 
 from src.dashboard.router.callback_registry import callback_registrar
-from src.dashboard.components.market.market_panel import create_market_panel
+from src.dashboard.components.market.panel import create_market_panel
 from src.dashboard.components.error_display import create_error_message
 from src.dashboard.services.chart_service import create_candlestick_chart
 
