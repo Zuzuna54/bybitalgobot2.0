@@ -14,6 +14,17 @@ Please use the new modules in the src/dashboard/services/chart_service/ package:
 This file is kept for backward compatibility but will be removed in a future version.
 """
 
+import warnings
+
+# Add deprecation warning
+warnings.warn(
+    "The data_service.py module is deprecated and will be removed in a future version. "
+    "Please use the data_service package instead. "
+    "Import from src.dashboard.services.data_service directly, which now refers to the package.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 # Re-export all chart functions from the new modules
 from src.dashboard.services.chart_service import *
 
