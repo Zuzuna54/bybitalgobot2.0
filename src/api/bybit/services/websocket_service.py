@@ -17,7 +17,10 @@ from loguru import logger
 import queue
 
 from src.api.bybit.core.connection import ConnectionManager
-from src.api.bybit.core.error_handling import with_error_handling
+from src.api.bybit.core.error_handling import (
+    with_error_handling,
+    BybitAuthenticationError,
+)
 from src.api.bybit.core.rate_limiting import rate_limited
 
 
@@ -44,6 +47,9 @@ class WebSocketService:
         self.private_ping_thread = None
         self.public_ws_thread = None
         self.private_ws_thread = None
+        self.auth_failed = False
+        self.auth_retry_count = 0
+        self.max_auth_retries = 3
 
         # Message queue for storing received messages
         self.message_queue = queue.Queue()
@@ -59,7 +65,35 @@ class WebSocketService:
             api_key: Bybit API key
             api_secret: Bybit API secret
         """
-        self.auth_credentials = (api_key, api_secret)
+        if not api_key or not api_secret:
+            logger.warning(
+                "Empty API credentials provided for WebSocket authentication"
+            )
+            return
+
+        # Validate API key format (basic check)
+        if not isinstance(api_key, str) or len(api_key.strip()) < 5:
+            logger.error("Invalid API key format for WebSocket authentication")
+            return
+
+        # Validate API secret format (basic check)
+        if not isinstance(api_secret, str) or len(api_secret.strip()) < 5:
+            logger.error("Invalid API secret format for WebSocket authentication")
+            return
+
+        # Update credentials
+        self.auth_credentials = (api_key.strip(), api_secret.strip())
+        self.auth_failed = False
+        self.auth_retry_count = 0
+
+        logger.info(
+            f"WebSocket authentication credentials updated. API key: {api_key[:4]}***"
+        )
+
+        # Reconnect private WebSocket with new credentials if already running
+        if self.running and self.private_ws:
+            logger.info("Reconnecting private WebSocket with new credentials")
+            self._connect_private()
 
     def _generate_signature(self, expires: int) -> str:
         """
@@ -92,16 +126,31 @@ class WebSocketService:
             ws: WebSocket connection
         """
         if not self.auth_credentials:
-            raise ValueError("Authentication credentials not set")
+            logger.warning(
+                "Authentication credentials not set, cannot authenticate WebSocket"
+            )
+            return
+
+        if self.auth_failed and self.auth_retry_count >= self.max_auth_retries:
+            logger.warning(
+                f"WebSocket authentication has already failed {self.auth_retry_count} times, not retrying"
+            )
+            return
 
         api_key, _ = self.auth_credentials
         expires = int((time.time() + 10) * 1000)
-        signature = self._generate_signature(expires)
 
-        auth_message = json.dumps({"op": "auth", "args": [api_key, expires, signature]})
-
-        ws.send(auth_message)
-        logger.info("WebSocket authentication sent")
+        try:
+            signature = self._generate_signature(expires)
+            auth_message = json.dumps(
+                {"op": "auth", "args": [api_key, expires, signature]}
+            )
+            ws.send(auth_message)
+            logger.info("WebSocket authentication sent")
+        except Exception as e:
+            logger.error(f"Error during WebSocket authentication: {e}")
+            self.auth_failed = True
+            self.auth_retry_count += 1
 
     def _on_message(self, ws, message) -> None:
         """
@@ -142,58 +191,65 @@ class WebSocketService:
             if "op" in data and data["op"] == "auth":
                 if data.get("success"):
                     logger.info("WebSocket authentication successful")
+                    self.auth_failed = False
+                    self.auth_retry_count = 0
                 else:
-                    logger.error(
-                        f"WebSocket authentication failed: {data.get('ret_msg', '')}"
-                    )
+                    error_msg = data.get("ret_msg", "Unknown error")
+                    logger.error(f"WebSocket authentication failed: {error_msg}")
+                    self.auth_failed = True
+                    self.auth_retry_count += 1
+
+                    # Notify the connection manager of authentication failure
+                    if hasattr(self.connection_manager, "invalidate_credentials"):
+                        self.connection_manager.invalidate_credentials()
+
+                    # Try to reconnect with exponential backoff if not exceeding max retries
+                    if self.auth_retry_count < self.max_auth_retries and self.running:
+                        retry_delay = 2**self.auth_retry_count  # Exponential backoff
+                        logger.info(
+                            f"Will retry WebSocket authentication in {retry_delay} seconds"
+                        )
+                        threading.Timer(retry_delay, self._connect_private).start()
                 return
 
             # Handle error messages
             if "success" in data and not data["success"]:
-                logger.error(f"WebSocket error: {data.get('ret_msg', '')}")
+                error_msg = data.get("ret_msg", "Unknown error")
+                logger.error(f"WebSocket error: {error_msg}")
+
+                # Check for authentication errors
+                if "auth" in error_msg.lower() or "permission" in error_msg.lower():
+                    logger.error(
+                        "Possible authentication issue detected in WebSocket message"
+                    )
+                    self.auth_failed = True
+                    self.auth_retry_count += 1
+
+                    # Notify the connection manager of authentication failure
+                    if hasattr(self.connection_manager, "invalidate_credentials"):
+                        self.connection_manager.invalidate_credentials()
                 return
 
-            # Process topic-specific callbacks
+            # Determine the channel type and dispatch to appropriate callback
             if "topic" in data:
                 topic = data["topic"]
+                logger.debug(f"Processing message for topic: {topic}")
 
-                # Check for ticker topics (tickers.SYMBOL format)
-                if topic.startswith("tickers."):
-                    symbol = topic.split(".")[1]
-                    full_topic = f"tickers.{symbol}"
-
-                    # Process callbacks for this ticker topic
-                    if full_topic in self.public_callbacks:
-                        for callback in self.public_callbacks[full_topic]:
-                            try:
-                                callback(data)
-                            except Exception as e:
-                                logger.error(
-                                    f"Error in callback for ticker topic {topic}: {e}"
-                                )
-                    return
-
-                # Check if we have a callback for this topic (general case)
-                if topic in self.public_callbacks:
-                    for callback in self.public_callbacks[topic]:
+                # Find and call the registered callbacks
+                if ws == self.public_ws and topic in self.public_callbacks:
+                    for callback in self.public_callbacks.get(topic, []):
                         try:
                             callback(data)
                         except Exception as e:
-                            logger.error(
-                                f"Error in public callback for topic {topic}: {e}"
-                            )
-
-                if topic in self.private_callbacks:
-                    for callback in self.private_callbacks[topic]:
+                            logger.error(f"Error in callback for {topic}: {e}")
+                elif ws == self.private_ws and topic in self.private_callbacks:
+                    for callback in self.private_callbacks.get(topic, []):
                         try:
                             callback(data)
                         except Exception as e:
-                            logger.error(
-                                f"Error in private callback for topic {topic}: {e}"
-                            )
-
-        except json.JSONDecodeError:
-            logger.error(f"Failed to parse WebSocket message: {message}")
+                            logger.error(f"Error in callback for {topic}: {e}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error in WebSocket message: {e}")
         except Exception as e:
             logger.error(f"Error processing WebSocket message: {e}")
 
@@ -206,6 +262,20 @@ class WebSocketService:
             error: Error occurred
         """
         logger.error(f"WebSocket error: {error}")
+
+        # Check for authentication errors
+        if isinstance(error, str) and (
+            "auth" in error.lower()
+            or "permission" in error.lower()
+            or "unauthorized" in error.lower()
+        ):
+            logger.error("Authentication error in WebSocket connection")
+            self.auth_failed = True
+            self.auth_retry_count += 1
+
+            # Notify the connection manager of authentication failure
+            if hasattr(self.connection_manager, "invalidate_credentials"):
+                self.connection_manager.invalidate_credentials()
 
     def _on_close(self, ws, close_status_code, close_msg) -> None:
         """
@@ -220,11 +290,26 @@ class WebSocketService:
 
         # Check if we need to reconnect
         if self.running:
+            # For private WebSocket, check if we have valid auth
+            if ws == self.private_ws:
+                if self.auth_failed and self.auth_retry_count >= self.max_auth_retries:
+                    logger.warning(
+                        "Not reconnecting private WebSocket due to authentication failures"
+                    )
+                    return
+
             logger.info("Attempting to reconnect WebSocket")
+            reconnect_delay = 1  # Start with 1 second
+
             if ws == self.public_ws:
-                self._connect_public()
+                # Use exponential backoff for reconnection
+                threading.Timer(reconnect_delay, self._connect_public).start()
             elif ws == self.private_ws:
-                self._connect_private()
+                # Use exponential backoff with longer delay for private connections
+                reconnect_delay = 2 ** min(
+                    self.auth_retry_count, 3
+                )  # Cap at 2^3 = 8 seconds
+                threading.Timer(reconnect_delay, self._connect_private).start()
 
     def _on_open(self, ws) -> None:
         """
@@ -239,28 +324,25 @@ class WebSocketService:
         if ws == self.private_ws and self.auth_credentials:
             self._authenticate(ws)
 
-    def _send_ping(self, ws, interval: int = 20) -> None:
+    def _send_ping(self, ws, interval: int) -> None:
         """
-        Send ping messages to keep the connection alive.
+        Send periodic ping messages to keep the connection alive.
 
         Args:
             ws: WebSocket connection
             interval: Ping interval in seconds
         """
-        while self.running:
+        while self.running and ws.sock and ws.sock.connected:
             try:
-                if ws.sock and ws.sock.connected:
-                    ping_message = json.dumps({"op": "ping"})
-                    ws.send(ping_message)
-                else:
-                    logger.warning("WebSocket not connected, stopping ping thread")
-                    break
-                time.sleep(interval)
+                ping_message = json.dumps({"op": "ping"})
+                ws.send(ping_message)
+                logger.debug("Sent WebSocket ping")
             except Exception as e:
                 logger.error(f"Error sending ping: {e}")
-                # If there's an error sending ping, the connection may be down
-                # Let the on_close handler handle reconnection
                 break
+
+            # Sleep for the specified interval
+            time.sleep(interval)
 
     def _connect_public(self) -> None:
         """
@@ -329,9 +411,20 @@ class WebSocketService:
         if (
             not self.connection_manager.api_key
             or not self.connection_manager.api_secret
+            or (
+                hasattr(self.connection_manager, "is_authenticated")
+                and not self.connection_manager.is_authenticated
+            )
         ):
             logger.warning(
-                "No API credentials provided, skipping private WebSocket connection"
+                "No valid API credentials available, skipping private WebSocket connection"
+            )
+            return
+
+        # Skip if too many auth failures
+        if self.auth_failed and self.auth_retry_count >= self.max_auth_retries:
+            logger.warning(
+                f"WebSocket authentication has failed {self.auth_retry_count} times, skipping private connection"
             )
             return
 
@@ -381,7 +474,10 @@ class WebSocketService:
             self.running = True
             try:
                 self._connect_public()
-                if self.auth_credentials:
+                if self.auth_credentials or (
+                    self.connection_manager.api_key
+                    and self.connection_manager.api_secret
+                ):
                     self._connect_private()
                 logger.info("WebSocket connections started")
             except Exception as e:

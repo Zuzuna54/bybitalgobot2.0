@@ -14,7 +14,13 @@ from typing import Dict, Any, Optional, Union
 from urllib.parse import urlencode
 from loguru import logger
 
-from src.api.bybit.core.error_handling import process_response, with_error_handling
+from src.api.bybit.core.error_handling import (
+    process_response,
+    with_error_handling,
+    BybitAuthenticationError,
+    BybitAPIError,
+    BybitRateLimitError,
+)
 from src.api.bybit.core.rate_limiting import rate_limited
 from src.api.bybit.core.connection import ConnectionManager
 
@@ -82,6 +88,8 @@ def make_request(
 
     Raises:
         BybitAPIError: If the request fails or returns an error
+        BybitAuthenticationError: If authentication fails
+        BybitRateLimitError: If rate limit is exceeded
     """
     # Build full URL
     url = connection_manager.get_rest_endpoint(endpoint)
@@ -99,7 +107,20 @@ def make_request(
     # Add authentication if needed
     if auth_required:
         if not connection_manager.api_key or not connection_manager.api_secret:
-            raise ValueError("Authentication required but no API credentials provided")
+            logger.error("Authentication required but no API credentials provided")
+            raise BybitAuthenticationError(
+                "Authentication required but no API credentials provided"
+            )
+
+        # Check if credentials are already known to be invalid
+        if (
+            hasattr(connection_manager, "is_authenticated")
+            and not connection_manager.is_authenticated
+        ):
+            logger.error("Authentication required but credentials are invalid")
+            raise BybitAuthenticationError(
+                "Authentication required but credentials are invalid"
+            )
 
         timestamp = int(time.time() * 1000)
 
@@ -121,11 +142,12 @@ def make_request(
     # Log the request (without sensitive data)
     logger.debug(f"API Request: {method} {url}")
 
-    # Make the request with retries
+    # Make the request with retries and exponential backoff
     remaining_retries = retry_count
+    current_delay = retry_delay
     response_json = {}
 
-    while remaining_retries > 0:
+    while remaining_retries >= 0:
         try:
             # Make the request
             response = requests.request(
@@ -137,9 +159,11 @@ def make_request(
                 timeout=10,
             )
 
-            # Better handling for authentication errors (401)
-            if response.status_code == 401:
-                logger.error(f"Authentication error (401) when calling {url}")
+            # Handle authentication errors explicitly (401, 403)
+            if response.status_code in (401, 403):
+                logger.error(
+                    f"Authentication error ({response.status_code}) when calling {url}"
+                )
                 logger.debug(f"Request headers: {headers}")
                 logger.debug(
                     f"API key: {connection_manager.api_key[:4]}*** Secret: {'Present' if connection_manager.api_secret else 'Missing'}"
@@ -149,23 +173,51 @@ def make_request(
                 try:
                     response_json = response.json()
                     logger.error(f"API authentication error response: {response_json}")
-                except Exception:
+
+                    # Invalidate credentials to prevent further failed attempts
+                    if hasattr(connection_manager, "invalidate_credentials"):
+                        connection_manager.invalidate_credentials()
+
+                    # Get the specific error message if available
+                    error_msg = response_json.get("retMsg", "Authentication failed")
+                    raise BybitAuthenticationError(error_msg, response_json)
+
+                except json.JSONDecodeError:
                     # If JSON parsing fails, log the raw text (if any)
                     logger.error(
                         f"API authentication error response (raw): {response.text}"
                     )
                     # For an empty response body return a custom error structure
-                    if not response.text:
-                        return {
-                            "retCode": 401,
-                            "retMsg": "Authentication failed - empty response received",
-                            "result": {},
-                        }
+                    error_msg = "Authentication failed - empty response received"
+                    if hasattr(connection_manager, "invalidate_credentials"):
+                        connection_manager.invalidate_credentials()
+                    raise BybitAuthenticationError(error_msg)
+
+            # Check for other HTTP errors
+            if response.status_code >= 400:
+                logger.error(
+                    f"HTTP error {response.status_code} when calling {url}: {response.text}"
+                )
+                # Don't retry for client errors (4xx) except rate limit
+                if response.status_code == 429:
+                    # Rate limit error, can retry
+                    retry_after = float(
+                        response.headers.get("Retry-After", current_delay)
+                    )
+                    logger.warning(f"Rate limit exceeded, retry after {retry_after}s")
+                    raise BybitRateLimitError(
+                        f"Rate limit exceeded, retry after {retry_after}s", retry_after
+                    )
+                elif 400 <= response.status_code < 500 and response.status_code != 408:
+                    # Client error, don't retry
+                    raise BybitAPIError(
+                        response.status_code, f"Client error: {response.text}"
+                    )
 
             # Parse the response
             try:
                 response_json = response.json()
-            except Exception as e:
+            except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON response: {e}")
                 # Return a structured error for empty responses
                 if not response.text:
@@ -181,24 +233,66 @@ def make_request(
                     "result": {"raw_text": response.text[:1000]},  # Limit the size
                 }
 
-            # Process the response to handle any errors
-            return process_response(response_json)
+            # Process the response to handle any API-level errors
+            processed_response = process_response(response_json)
 
-        except requests.exceptions.RequestException as e:
-            # Handle request exceptions
-            logger.warning(f"API request failed: {str(e)}")
-            remaining_retries -= 1
+            # If we got here, the request was successful
+            return processed_response
 
+        except (BybitAuthenticationError, BybitAPIError) as e:
+            # Don't retry authentication errors or specific API errors
+            logger.error(f"API error: {e}")
+            raise
+
+        except BybitRateLimitError as e:
+            # For rate limit errors, use the provided retry-after value
+            wait_time = e.retry_after if e.retry_after else current_delay
             if remaining_retries > 0:
-                logger.info(f"Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
+                logger.warning(
+                    f"Rate limit error, retrying in {wait_time}s ({remaining_retries} retries left)"
+                )
+                time.sleep(wait_time)
+                remaining_retries -= 1
                 # Increase delay for next retry (exponential backoff)
-                retry_delay *= 2
+                current_delay = min(current_delay * 2, 60)  # Cap at 60 seconds
             else:
-                logger.error(f"API request failed after {retry_count} retries")
+                logger.error("Rate limit error, no retries left")
                 raise
 
-    # This should never happen, but just in case
+        except requests.exceptions.RequestException as e:
+            # Network-related errors can be retried
+            if remaining_retries > 0:
+                logger.warning(
+                    f"Request error: {str(e)}, retrying in {current_delay}s ({remaining_retries} retries left)"
+                )
+                time.sleep(current_delay)
+                remaining_retries -= 1
+                # Increase delay for next retry (exponential backoff)
+                current_delay = min(current_delay * 2, 60)  # Cap at 60 seconds
+            else:
+                logger.error(f"Request error after all retries: {str(e)}")
+                raise BybitAPIError(
+                    0, f"Request failed after {retry_count} retries: {str(e)}"
+                )
+
+        except Exception as e:
+            # Unexpected errors
+            logger.error(f"Unexpected error during API request: {str(e)}")
+            if remaining_retries > 0:
+                logger.warning(
+                    f"Retrying in {current_delay}s ({remaining_retries} retries left)"
+                )
+                time.sleep(current_delay)
+                remaining_retries -= 1
+                # Increase delay for next retry (exponential backoff)
+                current_delay = min(current_delay * 2, 60)  # Cap at 60 seconds
+            else:
+                logger.error(f"Unexpected error after all retries: {str(e)}")
+                raise BybitAPIError(
+                    0, f"Unexpected error after {retry_count} retries: {str(e)}"
+                )
+
+    # This should never happen due to the exception handling above
     return response_json
 
 
@@ -240,6 +334,13 @@ def is_api_key_valid(
         True if the key is valid, False otherwise
     """
     try:
+        # Save original credentials to restore after test
+        original_key = connection_manager.api_key
+        original_secret = connection_manager.api_secret
+
+        # Temporarily set the credentials to test
+        connection_manager.set_auth_credentials(api_key, api_secret)
+
         # Try to get wallet balance to check if the API key is valid
         endpoint = "/v5/account/wallet-balance"
         params = {"accountType": "UNIFIED"}
@@ -257,3 +358,6 @@ def is_api_key_valid(
     except Exception as e:
         logger.warning(f"API key validation failed: {str(e)}")
         return False
+    finally:
+        # Restore original credentials
+        connection_manager.set_auth_credentials(original_key, original_secret)

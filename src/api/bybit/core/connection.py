@@ -42,6 +42,9 @@ class ConnectionManager:
         self.recv_window = recv_window
         self.base_url = self._get_base_url()
         self.ws_url = self._get_ws_url()
+        self.is_authenticated = False
+        self.auth_error_count = 0
+        self.max_auth_errors = 3
 
     def _get_base_url(self) -> str:
         """
@@ -98,7 +101,7 @@ class ConnectionManager:
 
     def set_auth_credentials(self, api_key: str, api_secret: str) -> None:
         """
-        Set authentication credentials.
+        Set or update authentication credentials.
 
         Args:
             api_key: Bybit API key
@@ -106,17 +109,40 @@ class ConnectionManager:
         """
         if not api_key or not api_secret:
             logger.warning("Empty API credentials provided")
+            return
 
-        if api_key and len(api_key.strip()) < 10:
-            logger.warning(f"API key seems too short: {api_key}")
+        # Validate API key format (basic check)
+        if not isinstance(api_key, str) or len(api_key.strip()) < 5:
+            logger.error("Invalid API key format")
+            return
 
-        if api_secret and len(api_secret.strip()) < 10:
-            logger.warning("API secret seems too short")
+        # Validate API secret format (basic check)
+        if not isinstance(api_secret, str) or len(api_secret.strip()) < 5:
+            logger.error("Invalid API secret format")
+            return
 
-        self.api_key = api_key.strip() if api_key else ""
-        self.api_secret = api_secret.strip() if api_secret else ""
+        # Store credentials
+        self.api_key = api_key.strip()
+        self.api_secret = api_secret.strip()
+        self.is_authenticated = True
+        self.auth_error_count = 0
 
-        logger.info(f"Authentication credentials set. API key: {self.api_key[:4]}***")
+        logger.info(f"API credentials updated. API key: {self.api_key[:4]}***")
+
+    def invalidate_credentials(self) -> None:
+        """
+        Invalidate the current authentication credentials after repeated failures.
+        This helps prevent further failed API calls with known bad credentials.
+        """
+        self.auth_error_count += 1
+        logger.warning(
+            f"Authentication error count: {self.auth_error_count}/{self.max_auth_errors}"
+        )
+
+        if self.auth_error_count >= self.max_auth_errors:
+            logger.error("Too many authentication failures, invalidating credentials")
+            self.is_authenticated = False
+            # Don't clear the credentials in case they need to be debugged
 
     def get_server_time(self) -> int:
         """
@@ -208,6 +234,10 @@ class ConnectionManager:
             logger.warning("No API credentials provided to verify")
             return False
 
+        if not self.is_authenticated:
+            logger.warning("Credentials are currently marked as invalid")
+            return False
+
         logger.debug(f"Verifying credentials with API key: {self.api_key[:4]}***")
 
         # Use wallet balance endpoint to verify credentials
@@ -244,20 +274,24 @@ class ConnectionManager:
                 logger.warning(
                     f"API credentials verification failed with status {response.status_code}: {response.text}"
                 )
+                self.invalidate_credentials()
                 return False
 
             data = response.json()
 
             if data.get("retCode") == 0:
                 logger.info("API credentials verified successfully")
+                self.auth_error_count = 0  # Reset error count on success
                 return True
             else:
                 error_msg = data.get("retMsg", "Unknown error")
                 logger.warning(f"API credentials verification failed: {error_msg}")
+                self.invalidate_credentials()
                 return False
 
         except Exception as e:
             logger.error(f"Error verifying API credentials: {e}")
+            self.invalidate_credentials()
             return False
 
     def get_rest_endpoint(self, endpoint: str) -> str:
