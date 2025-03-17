@@ -1,0 +1,1 @@
+{"key": "system_status", "value": {"running": true, "uptime_seconds": 7235.761461, "uptime_formatted": "2:00:35", "start_time": "2025-03-16 17:21:02", "memory_usage": 115.55859375, "cpu_percent": 0.0, "mode": "Standalone", "timestamp": "2025-03-16 19:21:38"}, "timestamp": 1742167298.4957461, "serialization": "json"}
