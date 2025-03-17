@@ -25,7 +25,6 @@ import pandas as pd
 # Import system components
 from src.config.config_manager import ConfigManager
 from src.api.bybit_client import BybitClient
-from src.data.market_data import MarketData
 from src.indicators.indicator_manager import IndicatorManager
 from src.strategies.strategy_manager import StrategyManager
 from src.trade_management.trade_manager import TradeManager
@@ -104,7 +103,11 @@ class TradingSystem:
         )
 
         # Initialize market data module
-        self.market_data = MarketData(self.config, self.api_client)
+        self.market_data = BybitClient(
+            api_key=api_config.get("api_key", ""),
+            api_secret=api_config.get("api_secret", ""),
+            testnet=api_config.get("testnet", True),
+        )
 
         # Initialize indicator manager
         self.indicator_manager = IndicatorManager()

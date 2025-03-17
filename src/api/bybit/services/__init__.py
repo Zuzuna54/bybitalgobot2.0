@@ -9,10 +9,12 @@ from src.api.bybit.services.account_service import AccountService
 from src.api.bybit.services.market_service import MarketDataService
 from src.api.bybit.services.order_service import OrderService
 from src.api.bybit.services.websocket_service import WebSocketService
+from src.api.bybit.services.data_service import DataService
 
 __all__ = [
-    'AccountService',
-    'MarketDataService',
-    'OrderService',
-    'WebSocketService',
+    "AccountService",
+    "MarketDataService",
+    "OrderService",
+    "WebSocketService",
+    "DataService",
 ]
