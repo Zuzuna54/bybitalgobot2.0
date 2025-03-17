@@ -73,18 +73,34 @@ class BacktestEngine:
             self.config = config
             self.config_manager = ConfigManager(config)
 
-        # Initialize components if not provided
-        self.market_data = market_data or BybitClient(
-            testnet=self.config.get("testnet", True),
-            api_key=self.config.get("api_key", ""),
-            api_secret=self.config.get("api_secret", ""),
-            data_dir=self.config.get("data_dir", "data"),
+        # Check if config is a Pydantic model
+        self.is_pydantic = hasattr(self.config, "dict") and callable(
+            getattr(self.config, "dict")
         )
+
+        # Initialize components if not provided
+        if self.is_pydantic:
+            # Handle Pydantic model
+            exchange_config = getattr(self.config, "exchange", {})
+            self.market_data = market_data or BybitClient(
+                testnet=getattr(exchange_config, "testnet", True),
+                api_key=getattr(exchange_config, "api_key", ""),
+                api_secret=getattr(exchange_config, "api_secret", ""),
+                data_dir=getattr(self.config, "data_dir", "data"),
+            )
+        else:
+            # Handle dictionary
+            self.market_data = market_data or BybitClient(
+                testnet=self.config.get("testnet", True),
+                api_key=self.config.get("api_key", ""),
+                api_secret=self.config.get("api_secret", ""),
+                data_dir=self.config.get("data_dir", "data"),
+            )
+
         self.indicator_manager = indicator_manager or IndicatorManager()
 
         # Initialize strategy manager if not provided
         if strategy_manager is None:
-            strategy_config = self.config.get("strategies", {})
             self.strategy_manager = StrategyManager(self.config, self.indicator_manager)
         else:
             self.strategy_manager = strategy_manager
@@ -94,12 +110,18 @@ class BacktestEngine:
         os.makedirs(output_dir, exist_ok=True)
 
         # Backtest configuration
-        self.backtest_config = self.config.get("backtest", {})
-        self.initial_balance = self.backtest_config.get("initial_balance", 10000.0)
-        self.commission_rate = self.backtest_config.get(
-            "commission_rate", 0.001
-        )  # 0.1% per trade
-        self.slippage = self.backtest_config.get("slippage", 0.0005)  # 0.05% slippage
+        if self.is_pydantic:
+            # Handle Pydantic model
+            backtest_config = getattr(self.config, "backtest", {})
+            self.initial_balance = getattr(backtest_config, "initial_balance", 10000.0)
+            self.commission_rate = getattr(backtest_config, "commission_rate", 0.001)
+            self.slippage = getattr(backtest_config, "slippage", 0.0005)
+        else:
+            # Handle dictionary
+            self.backtest_config = self.config.get("backtest", {})
+            self.initial_balance = self.backtest_config.get("initial_balance", 10000.0)
+            self.commission_rate = self.backtest_config.get("commission_rate", 0.001)
+            self.slippage = self.backtest_config.get("slippage", 0.0005)
 
         # Results storage
         self.trades: List[Dict[str, Any]] = []
@@ -142,7 +164,21 @@ class BacktestEngine:
         )
 
         # Initialize risk manager and performance tracker
-        risk_config = self.config.get("risk_management", {})
+        if self.is_pydantic:
+            # Handle Pydantic model
+            risk_config = None
+            if hasattr(self.config, "risk_management"):
+                risk_config = self.config.risk_management
+            elif hasattr(self.config, "risk"):
+                risk_config = self.config.risk
+            else:
+                risk_config = {}
+        else:
+            # Handle dictionary
+            risk_config = self.config.get(
+                "risk_management", self.config.get("risk", {})
+            )
+
         risk_manager = RiskManager(risk_config)
 
         performance_tracker = PerformanceTracker(

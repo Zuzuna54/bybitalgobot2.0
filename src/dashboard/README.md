@@ -12,7 +12,6 @@ The Algorithmic Trading Dashboard is a comprehensive web-based monitoring and vi
 - [Directory Structure](#directory-structure)
 - [Implementation Details](#implementation-details)
 - [Code Interactions](#code-interactions)
-- [Recent Improvements](#recent-improvements)
 - [Dependencies](#dependencies)
 - [Setup and Installation](#setup-and-installation)
 - [Usage](#usage)
@@ -372,29 +371,6 @@ Components communicate with each other through these mechanisms:
 2. Callback chaining where an output becomes an input to another callback
 3. Central event dispatching through notification triggers
 4. Tab visibility management through the active tab state
-
-## Recent Improvements
-
-The dashboard has undergone several significant improvements:
-
-### Modular Structure for Core Services
-
-- ✅ Reorganized data service into domain-specific modules:
-
-  - `data_service/base.py`: Core service class
-  - `data_service/performance_data.py`: Performance data functions
-  - `data_service/trade_data.py`: Trade data functions
-  - `data_service/market_data.py`: Market and orderbook data
-  - `data_service/strategy_data.py`: Strategy configuration
-  - `data_service/system_data.py`: System status and operations
-
-- ✅ Reorganized chart service into domain-specific modules:
-  - `chart_service/base.py`: Core chart configuration
-  - `chart_service/performance_charts.py`: Performance visualizations
-  - `chart_service/market_charts.py`: Market data charts
-  - `chart_service/orderbook_charts.py`: Orderbook visualizations
-  - `chart_service/strategy_charts.py`: Strategy performance charts
-  - `chart_service/component_renderers.py`: Reusable chart renderers
 
 ## Dependencies
 

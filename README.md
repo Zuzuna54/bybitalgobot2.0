@@ -52,16 +52,16 @@ src/
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/bybit-trading-system.git
-cd bybit-trading-system
+   git clone https://github.com/yourusername/bybit-trading-system.git
+   cd bybit-trading-system
 ```
 
 2. Create a virtual environment and install dependencies:
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
 ```
 
 3. Set up your environment variables:
@@ -71,8 +71,8 @@ Create a `.env` file in the root directory:
 ```
 # Bybit API Configuration
 BYBIT_USE_TESTNET=True
-BYBIT_API_KEY=your_api_key
-BYBIT_API_SECRET=your_api_secret
+   BYBIT_API_KEY=your_api_key
+   BYBIT_API_SECRET=your_api_secret
 ```
 
 ### Running the System
@@ -144,6 +144,17 @@ The system includes multiple implemented trading strategies:
 3. **Bollinger Breakout**: Trades breakouts from Bollinger Bands
 4. **MACD Trend Following**: Uses MACD indicator for trend following
 5. **VWAP Trend Trading**: Uses Volume Weighted Average Price for trend identification
+
+- To BE IMPLEMENTED
+
+6. **Bollinger Mean Reversion**: Trades mean reversion with Bollinger Bands
+7. **Breakout Trading**: Identifies and trades price breakouts
+8. **ATR Volatility Scalping**: Scalps markets based on volatility measured by Average True Range
+9. **ADX Strength Confirmation**: Uses ADX to confirm trend strength
+10. **Golden Cross**: Identifies long-term trend changes with MA crossovers
+11. **Keltner Channel Breakout**: Trades breakouts from Keltner Channels
+
+- TO BE IMPLEMETED
 
 All strategies inherit from a common `BaseStrategy` class that provides core functionality and a consistent interface.
 
