@@ -442,3 +442,417 @@
 2025-03-17 17:46:23 | INFO     | __main__:_run_trading_loop:686 - Successfully connected to Bybit API. Ticker data retrieved for BTCUSDT
 2025-03-17 17:46:23 | INFO     | __main__:_run_trading_loop:691 - Attempting to authenticate with API credentials...
 2025-03-17 17:46:23 | INFO     | __main__:_run_trading_loop:737 - Running in SIMULATED mode - no real trades will be executed.
+2025-03-17 17:58:22 | INFO     | __main__:__init__:52 - Initializing trading system with config: config/default_config.json, mode: paper
+2025-03-17 17:58:22 | INFO     | __main__:_validate_config_for_mode:106 - Configuration validation completed successfully
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:287 - Loading environment variables from .env file
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_api_client:376 - API credentials loaded: Available
+2025-03-17 17:58:22 | INFO     | src.api.bybit.core.connection:set_auth_credentials:119 - Authentication credentials set. API key: VMml***
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:291 - API client initialized
+2025-03-17 17:58:22 | INFO     | src.api.bybit.core.connection:set_auth_credentials:119 - Authentication credentials set. API key: VMml***
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:295 - Market data service initialized
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:299 - Technical indicators initialized
+2025-03-17 17:58:22 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_ema_fast (ma)
+2025-03-17 17:58:22 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_ema_slow (ma)
+2025-03-17 17:58:22 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_crossover (ma_crossover)
+2025-03-17 17:58:22 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_volume (obv)
+2025-03-17 17:58:22 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 17:58:22 | INFO     | src.strategies.base_strategy:__init__:106 - Initialized strategy: ema_crossover
+2025-03-17 17:58:22 | INFO     | src.strategies.manager.core:_init_strategies:131 - Initialized strategy: ema_crossover
+2025-03-17 17:58:22 | ERROR    | src.strategies.manager.core:_init_strategies:136 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for macd_trend_following not found
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for breakout_trading not found
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for vwap_trend_trading not found
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for atr_volatility_scalping not found
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for adx_strength_confirmation not found
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for golden_cross not found
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 17:58:22 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for keltner_channel_breakout not found
+2025-03-17 17:58:22 | INFO     | src.strategies.manager.core:__init__:81 - Strategy manager initialized with 1 strategies
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:303 - Strategy manager initialized
+2025-03-17 17:58:22 | INFO     | src.risk_management.risk_manager:__init__:38 - Risk manager initialized
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:307 - Risk manager initialized
+2025-03-17 17:58:22 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:311 - Trade manager initialized
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:315 - Performance tracker initialized
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_paper_trading:460 - Paper trading enabled
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:325 - Paper trading engine initialized
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_websockets:465 - WebSocket initialization not yet implemented
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:331 - WebSocket connections initialized
+2025-03-17 17:58:22 | INFO     | __main__:_initialize_components:352 - All components initialized successfully
+2025-03-17 17:58:22 | INFO     | __main__:__init__:81 - Trading system initialized
+2025-03-17 17:58:22 | INFO     | __main__:start:505 - Starting trading system in paper mode
+2025-03-17 17:58:22 | INFO     | __main__:_run_paper_trading:711 - Starting paper trading mode
+2025-03-17 17:58:22 | INFO     | __main__:_run_trading_loop:823 - Trading 3 symbols: BTCUSDT, ETHUSDT, SOLUSDT
+2025-03-17 17:58:22 | INFO     | __main__:_run_trading_loop:824 - Timeframe: 1h, Update interval: 60 seconds
+2025-03-17 17:58:22 | INFO     | __main__:_run_trading_loop:837 - API Configuration - testnet: False
+2025-03-17 17:58:22 | INFO     | __main__:_run_trading_loop:842 - Connection Manager testnet setting: False
+2025-03-17 17:58:22 | INFO     | __main__:_run_trading_loop:845 - Connection base URL: https://api.bybit.com
+2025-03-17 17:58:22 | INFO     | __main__:_run_trading_loop:855 - Using API key: VMml***ixNs
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/market/tickers
+2025-03-17 17:58:22 | INFO     | __main__:_run_trading_loop:862 - Successfully connected to Bybit API. Ticker data retrieved for BTCUSDT
+2025-03-17 17:58:22 | INFO     | __main__:_run_trading_loop:867 - Attempting to authenticate with API credentials...
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:160 - Generating signature with timestamp: 1742248702576
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:161 - API key being used: VMml***
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:162 - API secret length: 36 chars
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:163 - Params for signature: {'accountType': 'UNIFIED'}
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:176 - Query string for GET request: accountType=UNIFIED
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:187 - Full signature string: 1742248702576VMmlIYeAGuFmKIixNs5000accountType=UNIFIED
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:196 - Generated signature: 48380067eea8d6c78331c1e16e9c2e8f76d49a51935fdd122ce46f482dadad74
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/account/wallet-balance
+2025-03-17 17:58:22 | DEBUG    | __main__:_run_trading_loop:869 - Authentication response: {'list': [{'totalEquity': '0', 'accountIMRate': '0', 'totalMarginBalance': '0', 'totalInitialMargin': '0', 'accountType': 'UNIFIED', 'totalAvailableBalance': '0', 'accountMMRate': '0', 'totalPerpUPL': '0', 'totalWalletBalance': '0', 'accountLTV': '0', 'totalMaintenanceMargin': '0', 'coin': []}]}
+2025-03-17 17:58:22 | INFO     | __main__:_run_trading_loop:913 - Running in SIMULATED mode - no real trades will be executed.
+2025-03-17 17:58:22 | DEBUG    | __main__:_run_trading_loop:918 - Starting trading iteration
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:160 - Generating signature with timestamp: 1742248702783
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:161 - API key being used: VMml***
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:162 - API secret length: 36 chars
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:163 - Params for signature: {'accountType': 'UNIFIED'}
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:176 - Query string for GET request: accountType=UNIFIED
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:187 - Full signature string: 1742248702783VMmlIYeAGuFmKIixNs5000accountType=UNIFIED
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.connection:get_signature:196 - Generated signature: 063e0ad3b605c8a53bd004dc34195de3e9a52e2ad237c43685ec52fb9736cf98
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/account/wallet-balance
+2025-03-17 17:58:22 | DEBUG    | src.api.bybit.core.rate_limiting:acquire:105 - Rate limit throttling for default: waiting 0.358s
+2025-03-17 17:58:23 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/market/kline
+2025-03-17 17:58:23 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_fast
+2025-03-17 17:58:23 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_slow
+2025-03-17 17:58:23 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_crossover
+2025-03-17 17:58:23 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_volume
+2025-03-17 17:58:23 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/market/kline
+2025-03-17 17:58:24 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_fast
+2025-03-17 17:58:24 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_slow
+2025-03-17 17:58:24 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_crossover
+2025-03-17 17:58:24 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_volume
+2025-03-17 17:58:24 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/market/kline
+2025-03-17 17:58:24 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_fast
+2025-03-17 17:58:24 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_slow
+2025-03-17 17:58:24 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_crossover
+2025-03-17 17:58:24 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_volume
+2025-03-17 17:58:24 | DEBUG    | __main__:_run_trading_loop:1069 - Sleeping for 60 seconds until next update
+2025-03-17 17:58:27 | INFO     | __main__:_handle_shutdown:530 - Received shutdown signal: 2
+2025-03-17 17:58:27 | INFO     | __main__:_handle_shutdown:534 - Initiating graceful shutdown, please wait...
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:538 - Initiating graceful shutdown sequence
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:546 - Saving performance data
+2025-03-17 17:58:27 | ERROR    | src.performance.performance_tracker:save_performance_report:458 - Error saving performance report: [Errno 2] No such file or directory: 'data/performance/data/performance/performance_report_20250317_175827.json'
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:553 - Performance data saved to data/performance
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:560 - Closing WebSocket connections
+2025-03-17 17:58:27 | ERROR    | __main__:_shutdown:564 - Error closing WebSocket connections: 'WebSocketService' object has no attribute 'close_all'
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:592 - Performing final cleanup
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:602 - Shutdown complete
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:538 - Initiating graceful shutdown sequence
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:546 - Saving performance data
+2025-03-17 17:58:27 | ERROR    | src.performance.performance_tracker:save_performance_report:458 - Error saving performance report: [Errno 2] No such file or directory: 'data/performance/data/performance/performance_report_20250317_175827.json'
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:553 - Performance data saved to data/performance
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:560 - Closing WebSocket connections
+2025-03-17 17:58:27 | ERROR    | __main__:_shutdown:564 - Error closing WebSocket connections: 'WebSocketService' object has no attribute 'close_all'
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:592 - Performing final cleanup
+2025-03-17 17:58:27 | INFO     | __main__:_shutdown:602 - Shutdown complete
+2025-03-17 17:58:38 | INFO     | __main__:__init__:52 - Initializing trading system with config: config/default_config.json, mode: backtest
+2025-03-17 17:58:38 | INFO     | __main__:_validate_config_for_mode:106 - Configuration validation completed successfully
+2025-03-17 17:58:38 | INFO     | __main__:_initialize_components:287 - Loading environment variables from .env file
+2025-03-17 17:58:38 | INFO     | __main__:_initialize_api_client:376 - API credentials loaded: Available
+2025-03-17 17:58:38 | INFO     | src.api.bybit.core.connection:set_auth_credentials:119 - Authentication credentials set. API key: VMml***
+2025-03-17 17:58:38 | INFO     | __main__:_initialize_components:291 - API client initialized
+2025-03-17 17:58:38 | INFO     | src.api.bybit.core.connection:set_auth_credentials:119 - Authentication credentials set. API key: VMml***
+2025-03-17 17:58:38 | INFO     | __main__:_initialize_components:295 - Market data service initialized
+2025-03-17 17:58:38 | INFO     | __main__:_initialize_components:299 - Technical indicators initialized
+2025-03-17 17:58:38 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 17:58:38 | INFO     | src.strategies.base_strategy:__init__:106 - Initialized strategy: ema_crossover
+2025-03-17 17:58:38 | INFO     | src.strategies.manager.core:_init_strategies:131 - Initialized strategy: ema_crossover
+2025-03-17 17:58:38 | ERROR    | src.strategies.manager.core:_init_strategies:136 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for macd_trend_following not found
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for breakout_trading not found
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for vwap_trend_trading not found
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for atr_volatility_scalping not found
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for adx_strength_confirmation not found
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for golden_cross not found
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 17:58:38 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for keltner_channel_breakout not found
+2025-03-17 17:58:38 | INFO     | src.strategies.manager.core:__init__:81 - Strategy manager initialized with 1 strategies
+2025-03-17 17:58:38 | INFO     | __main__:_initialize_components:303 - Strategy manager initialized
+2025-03-17 17:58:38 | INFO     | src.risk_management.risk_manager:__init__:38 - Risk manager initialized
+2025-03-17 17:58:38 | INFO     | __main__:_initialize_components:307 - Risk manager initialized
+2025-03-17 17:58:38 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 17:58:38 | INFO     | __main__:_initialize_components:311 - Trade manager initialized
+2025-03-17 17:58:38 | INFO     | __main__:_initialize_components:315 - Performance tracker initialized
+2025-03-17 17:58:38 | ERROR    | __main__:_initialize_components:354 - Failed to initialize components: stat: path should be string, bytes, os.PathLike or integer, not dict
+2025-03-17 17:58:50 | INFO     | __main__:__init__:52 - Initializing trading system with config: test_config.json, mode: paper
+2025-03-17 17:58:50 | INFO     | __main__:_validate_config_for_mode:106 - Configuration validation completed successfully
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:287 - Loading environment variables from .env file
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_api_client:376 - API credentials loaded: Available
+2025-03-17 17:58:50 | INFO     | src.api.bybit.core.connection:set_auth_credentials:119 - Authentication credentials set. API key: VMml***
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:291 - API client initialized
+2025-03-17 17:58:50 | INFO     | src.api.bybit.core.connection:set_auth_credentials:119 - Authentication credentials set. API key: VMml***
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:295 - Market data service initialized
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:299 - Technical indicators initialized
+2025-03-17 17:58:50 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 17:58:50 | INFO     | src.strategies.base_strategy:__init__:106 - Initialized strategy: ema_crossover
+2025-03-17 17:58:50 | INFO     | src.strategies.manager.core:_init_strategies:131 - Initialized strategy: ema_crossover
+2025-03-17 17:58:50 | ERROR    | src.strategies.manager.core:_init_strategies:136 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for macd_trend_following not found
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for breakout_trading not found
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for vwap_trend_trading not found
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for atr_volatility_scalping not found
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for adx_strength_confirmation not found
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for golden_cross not found
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 17:58:50 | WARNING  | src.strategies.manager.core:_init_strategies:133 - Strategy class for keltner_channel_breakout not found
+2025-03-17 17:58:50 | INFO     | src.strategies.manager.core:__init__:81 - Strategy manager initialized with 1 strategies
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:303 - Strategy manager initialized
+2025-03-17 17:58:50 | INFO     | src.risk_management.risk_manager:__init__:38 - Risk manager initialized
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:307 - Risk manager initialized
+2025-03-17 17:58:50 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:311 - Trade manager initialized
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:315 - Performance tracker initialized
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_paper_trading:460 - Paper trading enabled
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:325 - Paper trading engine initialized
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_websockets:465 - WebSocket initialization not yet implemented
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:331 - WebSocket connections initialized
+2025-03-17 17:58:50 | INFO     | __main__:_initialize_components:352 - All components initialized successfully
+2025-03-17 17:58:50 | INFO     | __main__:__init__:81 - Trading system initialized
+2025-03-17 17:58:50 | INFO     | __main__:start:505 - Starting trading system in paper mode
+2025-03-17 17:58:50 | INFO     | __main__:_run_paper_trading:711 - Starting paper trading mode
+2025-03-17 17:58:50 | INFO     | __main__:_run_trading_loop:823 - Trading 3 symbols: BTCUSDT, ETHUSDT, SOLUSDT
+2025-03-17 17:58:50 | INFO     | __main__:_run_trading_loop:824 - Timeframe: 1h, Update interval: 60 seconds
+2025-03-17 17:58:50 | INFO     | __main__:_run_trading_loop:837 - API Configuration - testnet: False
+2025-03-17 17:58:50 | INFO     | __main__:_run_trading_loop:842 - Connection Manager testnet setting: False
+2025-03-17 17:58:50 | INFO     | __main__:_run_trading_loop:845 - Connection base URL: https://api.bybit.com
+2025-03-17 17:58:50 | INFO     | __main__:_run_trading_loop:855 - Using API key: VMml***ixNs
+2025-03-17 17:58:50 | INFO     | __main__:_run_trading_loop:862 - Successfully connected to Bybit API. Ticker data retrieved for BTCUSDT
+2025-03-17 17:58:50 | INFO     | __main__:_run_trading_loop:867 - Attempting to authenticate with API credentials...
+2025-03-17 17:58:50 | INFO     | __main__:_run_trading_loop:913 - Running in SIMULATED mode - no real trades will be executed.
+2025-03-17 17:58:57 | INFO     | __main__:_handle_shutdown:530 - Received shutdown signal: 2
+2025-03-17 17:58:57 | INFO     | __main__:_handle_shutdown:534 - Initiating graceful shutdown, please wait...
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:538 - Initiating graceful shutdown sequence
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:546 - Saving performance data
+2025-03-17 17:58:58 | ERROR    | src.performance.performance_tracker:save_performance_report:458 - Error saving performance report: [Errno 2] No such file or directory: 'data/performance/data/performance/performance_report_20250317_175858.json'
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:553 - Performance data saved to data/performance
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:560 - Closing WebSocket connections
+2025-03-17 17:58:58 | ERROR    | __main__:_shutdown:564 - Error closing WebSocket connections: 'WebSocketService' object has no attribute 'close_all'
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:592 - Performing final cleanup
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:602 - Shutdown complete
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:538 - Initiating graceful shutdown sequence
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:546 - Saving performance data
+2025-03-17 17:58:58 | ERROR    | src.performance.performance_tracker:save_performance_report:458 - Error saving performance report: [Errno 2] No such file or directory: 'data/performance/data/performance/performance_report_20250317_175858.json'
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:553 - Performance data saved to data/performance
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:560 - Closing WebSocket connections
+2025-03-17 17:58:58 | ERROR    | __main__:_shutdown:564 - Error closing WebSocket connections: 'WebSocketService' object has no attribute 'close_all'
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:592 - Performing final cleanup
+2025-03-17 17:58:58 | INFO     | __main__:_shutdown:602 - Shutdown complete
+2025-03-17 18:00:48 | INFO     | src.strategies.ema_crossover_strategy:generate_signals:147 - Generated BUY signal: BTCUSDT at 128.93 (strength: 0.62)
+2025-03-17 18:00:48 | INFO     | src.strategies.manager.signal_aggregator:create_aggregated_signal:220 - Created aggregated BUY signal for BTCUSDT with strength 0.62 from 1 strategies: unknown
+2025-03-17 18:00:48 | INFO     | __main__:_run_trading_loop:865 - Signal generated for SOLUSDT: BUY - strength: 0.62
+2025-03-17 18:00:48 | ERROR    | __main__:_run_trading_loop:880 - Error processing symbol SOLUSDT: 'BybitClient' object has no attribute 'get_account_info'
+2025-03-17 18:00:48 | INFO     | src.performance.performance_tracker:save_performance_report:449 - Performance report saved to data/performance/report_20250317_1800.json
+2025-03-17 18:00:49 | INFO     | src.strategies.manager.performance_tracker:save_performance_data:117 - Strategy performance saved to data/performance/strategy_performance_20250317_1800.json
+2025-03-17 18:00:49 | INFO     | __main__:_save_performance_metrics:927 - Performance metrics saved: 20250317_1800
+2025-03-17 18:00:53 | INFO     | __main__:_handle_shutdown:392 - Received shutdown signal: 2
+2025-03-17 18:00:53 | INFO     | __main__:_shutdown:397 - Initiating graceful shutdown sequence
+2025-03-17 18:00:53 | INFO     | __main__:_shutdown:404 - Saving performance data
+2025-03-17 18:00:53 | INFO     | src.performance.performance_tracker:save_performance_report:449 - Performance report saved to data/performance/report_20250317_1800.json
+2025-03-17 18:00:54 | INFO     | src.strategies.manager.performance_tracker:save_performance_data:117 - Strategy performance saved to data/performance/strategy_performance_20250317_1800.json
+2025-03-17 18:00:54 | INFO     | __main__:_save_performance_metrics:927 - Performance metrics saved: 20250317_1800
+2025-03-17 18:00:54 | INFO     | __main__:_shutdown:414 - Closing paper trading positions
+2025-03-17 18:00:54 | INFO     | __main__:_shutdown:426 - Shutdown complete
+2025-03-17 18:00:54 | INFO     | __main__:_shutdown:397 - Initiating graceful shutdown sequence
+2025-03-17 18:00:54 | INFO     | __main__:_shutdown:404 - Saving performance data
+2025-03-17 18:00:54 | INFO     | src.performance.performance_tracker:save_performance_report:449 - Performance report saved to data/performance/report_20250317_1800.json
+2025-03-17 18:00:55 | INFO     | src.strategies.manager.performance_tracker:save_performance_data:117 - Strategy performance saved to data/performance/strategy_performance_20250317_1800.json
+2025-03-17 18:00:55 | INFO     | __main__:_save_performance_metrics:927 - Performance metrics saved: 20250317_1800
+2025-03-17 18:00:55 | INFO     | __main__:_shutdown:414 - Closing paper trading positions
+2025-03-17 18:00:55 | INFO     | __main__:_shutdown:426 - Shutdown complete
+2025-03-17 18:03:48 | INFO     | __main__:__init__:52 - Initializing trading system with config: config/default_config.json, mode: paper
+2025-03-17 18:03:48 | INFO     | __main__:_validate_config_for_mode:103 - Configuration validation completed successfully
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:284 - Loading environment variables from .env file
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_api_client:373 - API credentials loaded: Available
+2025-03-17 18:03:48 | INFO     | src.api.bybit.core.connection:set_auth_credentials:119 - Authentication credentials set. API key: VMml***
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:288 - API client initialized
+2025-03-17 18:03:48 | INFO     | src.api.bybit.core.connection:set_auth_credentials:119 - Authentication credentials set. API key: VMml***
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:292 - Market data service initialized
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:296 - Technical indicators initialized
+2025-03-17 18:03:48 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_ema_fast (ma)
+2025-03-17 18:03:48 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_ema_slow (ma)
+2025-03-17 18:03:48 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_crossover (ma_crossover)
+2025-03-17 18:03:48 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_volume (obv)
+2025-03-17 18:03:48 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 18:03:48 | INFO     | src.strategies.base_strategy:__init__:106 - Initialized strategy: ema_crossover
+2025-03-17 18:03:48 | INFO     | src.strategies.manager.core:_init_strategies:154 - Initialized strategy: ema_crossover
+2025-03-17 18:03:48 | ERROR    | src.strategies.manager.core:_init_strategies:159 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for macd_trend_following not found
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for breakout_trading not found
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for vwap_trend_trading not found
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for atr_volatility_scalping not found
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for adx_strength_confirmation not found
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for golden_cross not found
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 18:03:48 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for keltner_channel_breakout not found
+2025-03-17 18:03:48 | INFO     | src.strategies.manager.core:__init__:86 - Strategy manager initialized with 1 strategies
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:300 - Strategy manager initialized
+2025-03-17 18:03:48 | INFO     | src.risk_management.risk_manager:__init__:38 - Risk manager initialized
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:304 - Risk manager initialized
+2025-03-17 18:03:48 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:308 - Trade manager initialized
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:312 - Performance tracker initialized
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_paper_trading:459 - Paper trading enabled
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:322 - Paper trading engine initialized
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_websockets:464 - WebSocket initialization not yet implemented
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:328 - WebSocket connections initialized
+2025-03-17 18:03:48 | INFO     | __main__:_initialize_components:349 - All components initialized successfully
+2025-03-17 18:03:48 | INFO     | __main__:__init__:81 - Trading system initialized
+2025-03-17 18:03:48 | INFO     | __main__:start:504 - Starting trading system in paper mode
+2025-03-17 18:03:48 | INFO     | __main__:_run_paper_trading:726 - Starting paper trading mode
+2025-03-17 18:03:48 | INFO     | __main__:_run_trading_loop:838 - Trading 3 symbols: BTCUSDT, ETHUSDT, SOLUSDT
+2025-03-17 18:03:48 | INFO     | __main__:_run_trading_loop:839 - Timeframe: 1h, Update interval: 60 seconds
+2025-03-17 18:03:48 | INFO     | __main__:_run_trading_loop:852 - API Configuration - testnet: False
+2025-03-17 18:03:48 | INFO     | __main__:_run_trading_loop:857 - Connection Manager testnet setting: False
+2025-03-17 18:03:48 | INFO     | __main__:_run_trading_loop:860 - Connection base URL: https://api.bybit.com
+2025-03-17 18:03:48 | INFO     | __main__:_run_trading_loop:870 - Using API key: VMml***ixNs
+2025-03-17 18:03:48 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/market/tickers
+2025-03-17 18:03:49 | INFO     | __main__:_run_trading_loop:877 - Successfully connected to Bybit API. Ticker data retrieved for BTCUSDT
+2025-03-17 18:03:49 | INFO     | __main__:_run_trading_loop:882 - Attempting to authenticate with API credentials...
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:160 - Generating signature with timestamp: 1742249029348
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:161 - API key being used: VMml***
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:162 - API secret length: 36 chars
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:163 - Params for signature: {'accountType': 'UNIFIED'}
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:176 - Query string for GET request: accountType=UNIFIED
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:187 - Full signature string: 1742249029348VMmlIYeAGuFmKIixNs5000accountType=UNIFIED
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:196 - Generated signature: 4071a83797ca7993db12acb08a0b3828be4de2b08d7368548171b51157b1bce6
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/account/wallet-balance
+2025-03-17 18:03:49 | DEBUG    | __main__:_run_trading_loop:884 - Authentication response: {'list': [{'totalEquity': '0', 'accountIMRate': '0', 'totalMarginBalance': '0', 'totalInitialMargin': '0', 'accountType': 'UNIFIED', 'totalAvailableBalance': '0', 'accountMMRate': '0', 'totalPerpUPL': '0', 'totalWalletBalance': '0', 'accountLTV': '0', 'totalMaintenanceMargin': '0', 'coin': []}]}
+2025-03-17 18:03:49 | INFO     | __main__:_run_trading_loop:928 - Running in SIMULATED mode - no real trades will be executed.
+2025-03-17 18:03:49 | DEBUG    | __main__:_run_trading_loop:933 - Starting trading iteration
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:160 - Generating signature with timestamp: 1742249029556
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:161 - API key being used: VMml***
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:162 - API secret length: 36 chars
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:163 - Params for signature: {'accountType': 'UNIFIED'}
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:176 - Query string for GET request: accountType=UNIFIED
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:187 - Full signature string: 1742249029556VMmlIYeAGuFmKIixNs5000accountType=UNIFIED
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.connection:get_signature:196 - Generated signature: 345c3dd1e80a4eb72c45b154fdee1d5ea984ae5a1708749cd52b47c9c4b11f6c
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/account/wallet-balance
+2025-03-17 18:03:49 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/market/kline
+2025-03-17 18:03:49 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_fast
+2025-03-17 18:03:49 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_slow
+2025-03-17 18:03:49 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_crossover
+2025-03-17 18:03:50 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_volume
+2025-03-17 18:03:50 | DEBUG    | src.api.bybit.core.rate_limiting:acquire:105 - Rate limit throttling for default: waiting 0.306s
+2025-03-17 18:03:50 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/market/kline
+2025-03-17 18:03:50 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_fast
+2025-03-17 18:03:50 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_slow
+2025-03-17 18:03:50 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_crossover
+2025-03-17 18:03:50 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_volume
+2025-03-17 18:03:50 | DEBUG    | src.api.bybit.core.api_client:make_request:122 - API Request: GET https://api.bybit.com/v5/market/kline
+2025-03-17 18:03:50 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_fast
+2025-03-17 18:03:51 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_ema_slow
+2025-03-17 18:03:51 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_crossover
+2025-03-17 18:03:51 | DEBUG    | src.indicators.indicator_manager:apply_indicators:147 - Applied indicator: ema_crossover_volume
+2025-03-17 18:03:51 | INFO     | src.strategies.ema_crossover_strategy:generate_signals:147 - Generated BUY signal: BTCUSDT at 128.93 (strength: 0.62)
+2025-03-17 18:03:51 | INFO     | src.strategies.manager.signal_aggregator:create_aggregated_signal:220 - Created aggregated BUY signal for BTCUSDT with strength 0.62 from 1 strategies: unknown
+2025-03-17 18:03:51 | INFO     | __main__:_run_trading_loop:1056 - Signal generated for SOLUSDT: BUY - strength: 0.62
+2025-03-17 18:03:51 | ERROR    | __main__:_run_trading_loop:1071 - Error processing symbol SOLUSDT: 'BybitClient' object has no attribute 'get_account_info'
+2025-03-17 18:03:51 | DEBUG    | __main__:_run_trading_loop:1084 - Sleeping for 60 seconds until next update
+2025-03-17 18:04:01 | INFO     | __main__:_handle_shutdown:529 - Received shutdown signal: 2
+2025-03-17 18:04:01 | INFO     | __main__:_handle_shutdown:533 - Initiating graceful shutdown, please wait...
+2025-03-17 18:04:02 | INFO     | __main__:_shutdown:537 - Initiating graceful shutdown sequence
+2025-03-17 18:04:02 | INFO     | __main__:_shutdown:545 - Saving performance data
+2025-03-17 18:04:02 | INFO     | src.performance.performance_tracker:save_performance_report:449 - Performance report saved to data/performance/performance_report_20250317_180402.json
+2025-03-17 18:04:02 | INFO     | __main__:_shutdown:552 - Performance data saved to data/performance
+2025-03-17 18:04:02 | INFO     | __main__:_shutdown:559 - Closing WebSocket connections
+2025-03-17 18:04:02 | DEBUG    | src.api.bybit.services.websocket_service:stop:397 - WebSocket connections already stopped
+2025-03-17 18:04:02 | INFO     | __main__:_shutdown:607 - Performing final cleanup
+2025-03-17 18:04:02 | INFO     | __main__:_shutdown:617 - Shutdown complete
+2025-03-17 18:04:02 | INFO     | __main__:_shutdown:537 - Initiating graceful shutdown sequence
+2025-03-17 18:04:02 | INFO     | __main__:_shutdown:545 - Saving performance data
+2025-03-17 18:04:02 | INFO     | src.performance.performance_tracker:save_performance_report:449 - Performance report saved to data/performance/performance_report_20250317_180402.json
+2025-03-17 18:04:03 | INFO     | __main__:_shutdown:552 - Performance data saved to data/performance
+2025-03-17 18:04:03 | INFO     | __main__:_shutdown:559 - Closing WebSocket connections
+2025-03-17 18:04:03 | DEBUG    | src.api.bybit.services.websocket_service:stop:397 - WebSocket connections already stopped
+2025-03-17 18:04:03 | INFO     | __main__:_shutdown:607 - Performing final cleanup
+2025-03-17 18:04:03 | INFO     | __main__:_shutdown:617 - Shutdown complete
+2025-03-17 18:04:19 | INFO     | __main__:__init__:52 - Initializing trading system with config: config/default_config.json, mode: backtest
+2025-03-17 18:04:19 | INFO     | __main__:_validate_config_for_mode:103 - Configuration validation completed successfully
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_components:284 - Loading environment variables from .env file
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_api_client:373 - API credentials loaded: Available
+2025-03-17 18:04:19 | INFO     | src.api.bybit.core.connection:set_auth_credentials:119 - Authentication credentials set. API key: VMml***
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_components:288 - API client initialized
+2025-03-17 18:04:19 | INFO     | src.api.bybit.core.connection:set_auth_credentials:119 - Authentication credentials set. API key: VMml***
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_components:292 - Market data service initialized
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_components:296 - Technical indicators initialized
+2025-03-17 18:04:19 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_ema_fast (ma)
+2025-03-17 18:04:19 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_ema_slow (ma)
+2025-03-17 18:04:19 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_crossover (ma_crossover)
+2025-03-17 18:04:19 | DEBUG    | src.indicators.indicator_manager:add_indicator:87 - Added indicator: ema_crossover_volume (obv)
+2025-03-17 18:04:19 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 18:04:19 | INFO     | src.strategies.base_strategy:__init__:106 - Initialized strategy: ema_crossover
+2025-03-17 18:04:19 | INFO     | src.strategies.manager.core:_init_strategies:154 - Initialized strategy: ema_crossover
+2025-03-17 18:04:19 | ERROR    | src.strategies.manager.core:_init_strategies:159 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for macd_trend_following not found
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for breakout_trading not found
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for vwap_trend_trading not found
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for atr_volatility_scalping not found
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for adx_strength_confirmation not found
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for golden_cross not found
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 18:04:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for keltner_channel_breakout not found
+2025-03-17 18:04:19 | INFO     | src.strategies.manager.core:__init__:86 - Strategy manager initialized with 1 strategies
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_components:300 - Strategy manager initialized
+2025-03-17 18:04:19 | INFO     | src.risk_management.risk_manager:__init__:38 - Risk manager initialized
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_components:304 - Risk manager initialized
+2025-03-17 18:04:19 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_components:308 - Trade manager initialized
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_components:312 - Performance tracker initialized
+2025-03-17 18:04:19 | INFO     | src.backtesting.backtest.engine:__init__:156 - Backtest engine initialized with 1 strategies
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_components:317 - Backtest engine initialized
+2025-03-17 18:04:19 | INFO     | __main__:_initialize_components:349 - All components initialized successfully
+2025-03-17 18:04:19 | INFO     | __main__:__init__:81 - Trading system initialized
+2025-03-17 18:04:19 | INFO     | __main__:start:504 - Starting trading system in backtest mode
+2025-03-17 18:04:19 | INFO     | __main__:_run_backtest:621 - Starting backtest
+2025-03-17 18:04:19 | INFO     | __main__:_run_backtest:649 - Backtest Configuration: Symbols=['BTCUSDT', 'ETHUSDT', 'SOLUSDT'], Start=2023-01-01T00:00:00Z, End=2023-12-31T23:59:59Z, Timeframe=1h
+2025-03-17 18:04:19 | INFO     | __main__:_run_backtest:676 - Backtest completed (simulation mode)
+2025-03-17 18:04:19 | INFO     | __main__:_run_backtest:677 - Note: Full backtesting engine initialization needs to be fixed for actual backtesting
+2025-03-17 18:04:19 | INFO     | __main__:_shutdown:537 - Initiating graceful shutdown sequence
+2025-03-17 18:04:19 | INFO     | __main__:_shutdown:545 - Saving performance data
+2025-03-17 18:04:19 | INFO     | src.performance.performance_tracker:save_performance_report:449 - Performance report saved to data/performance/performance_report_20250317_180419.json
+2025-03-17 18:04:19 | WARNING  | src.performance.performance_tracker:_generate_performance_charts:597 - Not enough data points to generate charts
+2025-03-17 18:04:19 | INFO     | __main__:_shutdown:552 - Performance data saved to data/performance
+2025-03-17 18:04:19 | INFO     | __main__:_shutdown:559 - Closing WebSocket connections
+2025-03-17 18:04:19 | DEBUG    | src.api.bybit.services.websocket_service:stop:397 - WebSocket connections already stopped
+2025-03-17 18:04:19 | INFO     | __main__:_shutdown:607 - Performing final cleanup
+2025-03-17 18:04:19 | INFO     | __main__:_shutdown:617 - Shutdown complete

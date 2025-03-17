@@ -35,7 +35,7 @@ class StrategyManager:
         Initialize the strategy manager.
 
         Args:
-            config: Configuration dictionary or Pydantic model
+            config: System configuration dictionary
             indicator_manager: Indicator manager instance
         """
         self.config = config
@@ -43,9 +43,14 @@ class StrategyManager:
 
         # Strategy configuration - handle both dict and Pydantic models
         # Check if config is a dict or a Pydantic model
-        if hasattr(config, "dict") and callable(getattr(config, "dict")):
+        if (
+            hasattr(config, "dict")
+            and callable(getattr(config, "dict"))
+            or hasattr(config, "model_dump")
+            and callable(getattr(config, "model_dump"))
+        ):
             # It's a Pydantic model - convert to dict for compatibility
-            config_dict = config.dict()
+            config_dict = self._get_config_dict(config)
             self.strategy_configs = config_dict.get("strategies", {})
             self.strategy_weights = config_dict.get("strategy_weights", {})
             self.default_weight = config_dict.get("default_strategy_weight", 1.0)
@@ -81,6 +86,24 @@ class StrategyManager:
         logger.info(
             f"Strategy manager initialized with {len(self.strategies)} strategies"
         )
+
+    def _get_config_dict(self, config) -> Dict[str, Any]:
+        """
+        Convert Pydantic model config to a dictionary for compatibility.
+
+        Args:
+            config: Configuration object (Pydantic model or dict)
+
+        Returns:
+            Dictionary representation of the config
+        """
+        if hasattr(config, "model_dump") and callable(getattr(config, "model_dump")):
+            # Pydantic v2
+            return config.model_dump()
+        elif hasattr(config, "dict") and callable(getattr(config, "dict")):
+            # Pydantic v1
+            return config.dict()
+        return config  # Already a dict
 
     def _init_strategies(self) -> None:
         """Initialize all enabled strategies from configuration."""

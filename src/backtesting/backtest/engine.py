@@ -49,7 +49,7 @@ class BacktestEngine:
 
     def __init__(
         self,
-        config: Union[Dict[str, Any], ConfigManager],
+        config_manager: Union[Dict[str, Any], ConfigManager],
         market_data: Optional[BybitClient] = None,
         indicator_manager: Optional[IndicatorManager] = None,
         strategy_manager: Optional[StrategyManager] = None,
@@ -59,19 +59,40 @@ class BacktestEngine:
         Initialize the backtesting engine.
 
         Args:
-            config: Configuration dictionary or ConfigManager instance
+            config_manager: Configuration manager instance or dictionary
             market_data: Bybit client instance (optional)
             indicator_manager: Indicator manager instance (optional)
             strategy_manager: Strategy manager instance (optional)
             output_dir: Directory to save backtest results
         """
         # Set up configuration
-        if isinstance(config, ConfigManager):
-            self.config = config.get_config()
-            self.config_manager = config
+        if isinstance(config_manager, ConfigManager):
+            self.config_manager = config_manager
+            self.config = config_manager.get_config()
         else:
-            self.config = config
-            self.config_manager = ConfigManager(config)
+            # Backward compatibility for dictionary input
+            self.config = config_manager
+            try:
+                # Try to create a config manager from the dictionary
+                # This is not ideal but maintains backward compatibility
+                self.config_manager = ConfigManager(Path("config/default_config.json"))
+                logger.warning(
+                    "Creating a ConfigManager from default config because dictionary was provided"
+                )
+            except Exception as e:
+                logger.error(f"Error creating ConfigManager: {e}")
+                self.config_manager = None
+
+        # Check if config is a Pydantic model and convert to dict as needed
+        if (
+            hasattr(self.config, "model_dump")
+            and callable(getattr(self.config, "model_dump"))
+            or hasattr(self.config, "dict")
+            and callable(getattr(self.config, "dict"))
+        ):
+            self.config_dict = self._get_config_dict(self.config)
+        else:
+            self.config_dict = self.config  # Already a dict
 
         # Check if config is a Pydantic model
         self.is_pydantic = hasattr(self.config, "dict") and callable(
@@ -135,6 +156,24 @@ class BacktestEngine:
         logger.info(
             f"Backtest engine initialized with {len(self.strategy_manager.get_enabled_strategies())} strategies"
         )
+
+    def _get_config_dict(self, config) -> Dict[str, Any]:
+        """
+        Convert Pydantic model config to a dictionary for compatibility.
+
+        Args:
+            config: Configuration object (Pydantic model or dict)
+
+        Returns:
+            Dictionary representation of the config
+        """
+        if hasattr(config, "model_dump") and callable(getattr(config, "model_dump")):
+            # Pydantic v2
+            return config.model_dump()
+        elif hasattr(config, "dict") and callable(getattr(config, "dict")):
+            # Pydantic v1
+            return config.dict()
+        return config  # Already a dict
 
     def run_backtest(
         self,

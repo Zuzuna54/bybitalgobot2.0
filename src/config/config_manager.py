@@ -8,7 +8,8 @@ system configuration settings from JSON files and environment variables.
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
+from dataclasses import dataclass, field
 
 import pydantic
 from loguru import logger
@@ -170,7 +171,8 @@ class ConfigManager:
             config_path: Path to the configuration file
         """
         self.config_path = config_path
-        self.config_data = self._load_config()
+        self.config_data = self.load_configuration(config_path)
+        self.validate_configuration()
         self.config = self._validate_config(self.config_data)
 
     def _load_config(self) -> Dict[str, Any]:
@@ -239,6 +241,149 @@ class ConfigManager:
         except Exception as e:
             logger.error(f"Failed to save configuration: {e}")
             raise
+
+    def validate_configuration(self):
+        """Validate the configuration for consistency and completeness."""
+        # Check for required sections
+        required_sections = ["exchange", "pairs", "strategies", "risk"]
+        for section in required_sections:
+            if section not in self.config_data:
+                logger.warning(f"Missing required configuration section: {section}")
+                self.config_data[section] = {}
+
+        # Validate exchange configuration
+        exchange_config = self.config_data.get("exchange", {})
+        if "name" not in exchange_config:
+            logger.warning("Exchange name not specified, defaulting to 'bybit'")
+            exchange_config["name"] = "bybit"
+
+        # Validate trading pairs
+        pairs = self.config_data.get("pairs", [])
+        if not pairs:
+            logger.warning("No trading pairs specified")
+
+        # Validate strategies
+        strategies = self.config_data.get("strategies", [])
+        if not strategies:
+            logger.warning("No trading strategies specified")
+
+        # Validate risk parameters
+        risk_config = self.config_data.get("risk", {})
+        required_risk_params = [
+            "max_position_size_percent",
+            "max_daily_drawdown_percent",
+            "default_leverage",
+        ]
+        for param in required_risk_params:
+            if param not in risk_config:
+                logger.warning(f"Missing risk parameter: {param}")
+
+    def load_configuration(self, config_path: str) -> Dict[str, Any]:
+        """
+        Load configuration from file with inheritance.
+
+        Args:
+            config_path: Path to config file
+
+        Returns:
+            Configuration dictionary
+        """
+        # Load default configuration
+        default_config = self._load_default_config()
+
+        # Load user configuration if specified
+        user_config = {}
+        if config_path and os.path.exists(config_path):
+            with open(config_path, "r") as f:
+                user_config = json.load(f)
+
+        # Merge configurations with user config taking precedence
+        merged_config = self._deep_merge(default_config, user_config)
+
+        # Apply environment variable overrides
+        env_config = self._load_env_config()
+        merged_config = self._deep_merge(merged_config, env_config)
+
+        return merged_config
+
+    def _load_default_config(self) -> Dict[str, Any]:
+        """
+        Load default configuration from the default_config.json file.
+
+        Returns:
+            Default configuration dictionary
+        """
+        default_config_path = Path(__file__).parent / "default_config.json"
+        if not default_config_path.exists():
+            logger.warning(
+                "Default configuration file not found. Using empty configuration."
+            )
+            return {}
+
+        try:
+            with open(default_config_path, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load default configuration: {e}")
+            return {}
+
+    def _deep_merge(
+        self, base: Dict[str, Any], override: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Deep merge two dictionaries with override taking precedence.
+
+        Args:
+            base: Base dictionary
+            override: Dictionary with overrides
+
+        Returns:
+            Merged dictionary
+        """
+        result = base.copy()
+
+        for key, value in override.items():
+            if (
+                key in result
+                and isinstance(result[key], dict)
+                and isinstance(value, dict)
+            ):
+                # Recursively merge dictionaries
+                result[key] = self._deep_merge(result[key], value)
+            else:
+                # Override or add value
+                result[key] = value
+
+        return result
+
+    def _load_env_config(self) -> Dict[str, Any]:
+        """
+        Load configuration from environment variables.
+
+        Returns:
+            Configuration dictionary from environment variables
+        """
+        env_config = {}
+
+        # Exchange config from environment
+        if os.environ.get("BYBIT_API_KEY"):
+            if "exchange" not in env_config:
+                env_config["exchange"] = {}
+            env_config["exchange"]["api_key"] = os.environ.get("BYBIT_API_KEY")
+
+        if os.environ.get("BYBIT_API_SECRET"):
+            if "exchange" not in env_config:
+                env_config["exchange"] = {}
+            env_config["exchange"]["api_secret"] = os.environ.get("BYBIT_API_SECRET")
+
+        if os.environ.get("BYBIT_USE_TESTNET"):
+            if "exchange" not in env_config:
+                env_config["exchange"] = {}
+            env_config["exchange"]["testnet"] = (
+                os.environ.get("BYBIT_USE_TESTNET").lower() == "true"
+            )
+
+        return env_config
 
     def get(self, key: str, default: Any = None) -> Any:
         """

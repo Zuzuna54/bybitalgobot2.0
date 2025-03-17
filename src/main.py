@@ -82,28 +82,149 @@ class TradingSystem:
 
     def _validate_config_for_mode(self):
         """Validate configuration for the selected operating mode."""
+        # First, get the dict representation of the config for easier access
         config_dict = self._get_config_dict()
 
+        # Validate common configuration elements
+        self._validate_common_config(config_dict)
+
+        # Mode-specific validation
         if self.is_live:
-            # Check for API credentials in live mode
-            if not self._check_api_credentials():
-                raise ValueError("API credentials required for live trading")
+            self._validate_live_config(config_dict)
+        elif self.is_paper:
+            self._validate_paper_config(config_dict)
+        elif self.is_backtest:
+            self._validate_backtest_config(config_dict)
+        else:
+            logger.warning(
+                f"Unknown mode '{self.mode}', skipping mode-specific validation"
+            )
 
-            # Check for risk parameters in live mode
-            if not self._check_risk_parameters():
-                raise ValueError("Risk parameters must be configured for live trading")
+        logger.info("Configuration validation completed successfully")
 
-        if self.is_backtest:
-            # Check for backtest configuration
-            if "backtest" not in config_dict:
-                raise ValueError("Backtest configuration required for backtest mode")
+    def _validate_common_config(self, config_dict):
+        """Validate configuration elements common to all modes."""
+        # Check for required sections
+        required_sections = ["exchange", "pairs", "strategies", "risk"]
+        for section in required_sections:
+            if section not in config_dict:
+                raise ValueError(f"Missing required configuration section: {section}")
 
-            # Check for required backtest parameters
-            backtest_config = config_dict.get("backtest", {})
-            required_params = ["start_date", "end_date", "initial_balance"]
-            for param in required_params:
-                if param not in backtest_config:
-                    raise ValueError(f"Missing required backtest parameter: {param}")
+        # Check for at least one trading pair
+        pairs = config_dict.get("pairs", [])
+        if not pairs:
+            raise ValueError("No trading pairs specified in configuration")
+
+        # Check for at least one strategy
+        strategies = config_dict.get("strategies", [])
+        if not strategies:
+            raise ValueError("No trading strategies specified in configuration")
+
+        # Check for at least one active strategy
+        active_strategies = [s for s in strategies if s.get("is_active", True)]
+        if not active_strategies:
+            logger.warning("No active trading strategies found in configuration")
+
+    def _validate_live_config(self, config_dict):
+        """Validate configuration for live trading mode."""
+        # Check for API credentials
+        if not self._check_api_credentials():
+            raise ValueError(
+                "API credentials required for live trading. Set BYBIT_API_KEY and BYBIT_API_SECRET environment variables or specify in configuration."
+            )
+
+        # Check testnet setting with warning
+        exchange_config = config_dict.get("exchange", {})
+        if exchange_config.get("testnet", False):
+            logger.warning(
+                "Running live trading with testnet enabled! Switch to mainnet for real trading."
+            )
+
+        # Check for risk parameters
+        self._validate_risk_parameters(config_dict)
+
+        # Check for max position size in live mode (safety check)
+        risk_config = config_dict.get("risk", {})
+        max_position_size = risk_config.get("max_position_size_percent", 100.0)
+        if max_position_size > 10.0:
+            logger.warning(
+                f"Max position size is set to {max_position_size}% in live mode, which may be risky"
+            )
+
+    def _validate_paper_config(self, config_dict):
+        """Validate configuration for paper trading mode."""
+        # Paper trading still needs API credentials for market data
+        if not self._check_api_credentials():
+            logger.warning(
+                "API credentials missing. Some market data features may be limited."
+            )
+
+        # Validate risk parameters, but with more leniency
+        self._validate_risk_parameters(config_dict, strict=False)
+
+    def _validate_backtest_config(self, config_dict):
+        """Validate configuration for backtest mode."""
+        # Check for backtest configuration
+        if "backtest" not in config_dict:
+            raise ValueError("Backtest configuration required for backtest mode")
+
+        # Check for required backtest parameters
+        backtest_config = config_dict.get("backtest", {})
+        required_params = ["start_date", "end_date", "initial_balance"]
+        for param in required_params:
+            if param not in backtest_config:
+                raise ValueError(f"Missing required backtest parameter: {param}")
+
+        # Validate date formats
+        try:
+            start_date = backtest_config.get("start_date")
+            end_date = backtest_config.get("end_date")
+            # Basic validation - you may want to add more comprehensive date validation
+            if start_date and not isinstance(start_date, str):
+                raise ValueError("start_date must be a string in ISO format")
+            if end_date and not isinstance(end_date, str):
+                raise ValueError("end_date must be a string in ISO format")
+        except Exception as e:
+            logger.error(f"Invalid date format in backtest configuration: {e}")
+            raise ValueError(f"Invalid date format in backtest configuration: {e}")
+
+    def _validate_risk_parameters(self, config_dict, strict=True):
+        """
+        Validate risk management parameters.
+
+        Args:
+            config_dict: Configuration dictionary
+            strict: Whether to strictly enforce all parameters (True for live mode)
+        """
+        risk_config = config_dict.get("risk", {})
+        required_params = [
+            "max_position_size_percent",
+            "max_daily_drawdown_percent",
+            "default_leverage",
+        ]
+
+        for param in required_params:
+            if param not in risk_config:
+                msg = f"Missing required risk parameter: {param}"
+                if strict:
+                    raise ValueError(msg)
+                else:
+                    logger.warning(msg)
+
+        # Additional validation for specific parameters
+        if "max_position_size_percent" in risk_config:
+            max_size = risk_config["max_position_size_percent"]
+            if not isinstance(max_size, (int, float)) or max_size <= 0:
+                raise ValueError(
+                    f"max_position_size_percent must be a positive number, got {max_size}"
+                )
+
+        if "default_leverage" in risk_config:
+            leverage = risk_config["default_leverage"]
+            if not isinstance(leverage, int) or leverage < 1:
+                raise ValueError(
+                    f"default_leverage must be a positive integer, got {leverage}"
+                )
 
     def _check_api_credentials(self) -> bool:
         """Check if API credentials are properly configured."""
@@ -122,19 +243,6 @@ class TradingSystem:
             api_secret = os.environ.get("BYBIT_API_SECRET", "")
 
         return bool(api_key and api_secret)
-
-    def _check_risk_parameters(self) -> bool:
-        """Check if risk parameters are properly configured."""
-        config_dict = self._get_config_dict()
-        risk_config = config_dict.get("risk", {})
-
-        required_params = [
-            "max_position_size_percent",
-            "max_daily_drawdown_percent",
-            "default_leverage",
-        ]
-
-        return all(param in risk_config for param in required_params)
 
     def _setup_logging(self, log_level: str) -> None:
         """
@@ -168,56 +276,83 @@ class TradingSystem:
 
     def _initialize_components(self) -> None:
         """Initialize all trading system components in proper order."""
-        # Step 1: Load environment variables and configuration
-        load_dotenv()
-        logger.info("Loading environment variables from .env file")
+        try:
+            # Step 1: Load environment variables and configuration
+            from dotenv import load_dotenv  # Import here to handle optional dependency
 
-        # Step 2: Initialize API client (needed by most other components)
-        self._initialize_api_client()
+            load_dotenv()
+            logger.info("Loading environment variables from .env file")
 
-        # Step 3: Initialize market data service
-        self._initialize_market_data()
+            # Step 2: Initialize API client (needed by most other components)
+            self._initialize_api_client()
+            logger.info("API client initialized")
 
-        # Step 4: Initialize technical indicators
-        self._initialize_indicators()
+            # Step 3: Initialize market data service
+            self._initialize_market_data()
+            logger.info("Market data service initialized")
 
-        # Step 5: Initialize strategy manager (depends on indicators)
-        self._initialize_strategy_manager()
+            # Step 4: Initialize technical indicators
+            self._initialize_indicators()
+            logger.info("Technical indicators initialized")
 
-        # Step 6: Initialize risk manager
-        self._initialize_risk_manager()
+            # Step 5: Initialize strategy manager (depends on indicators)
+            self._initialize_strategy_manager()
+            logger.info("Strategy manager initialized")
 
-        # Step 7: Initialize trade manager (depends on API, risk manager)
-        self._initialize_trade_manager()
+            # Step 6: Initialize risk manager
+            self._initialize_risk_manager()
+            logger.info("Risk manager initialized")
 
-        # Step 8: Initialize performance tracker
-        self._initialize_performance_tracker()
+            # Step 7: Initialize trade manager (depends on API, risk manager)
+            self._initialize_trade_manager()
+            logger.info("Trade manager initialized")
 
-        # Step 9: Initialize backtesting engine if needed
-        if self.is_backtest:
-            # For testing purposes, we'll skip actual initialization
-            # self._initialize_backtest_engine()
-            logger.info("Backtest engine initialization skipped for testing")
-            self.backtest_engine = True  # Just set a flag that it exists
+            # Step 8: Initialize performance tracker
+            self._initialize_performance_tracker()
+            logger.info("Performance tracker initialized")
 
-        # Step 10: Initialize paper trading if needed
-        if self.is_paper:
-            self._initialize_paper_trading()
+            # Step 9: Initialize backtesting engine if needed
+            if self.is_backtest:
+                self._initialize_backtest_engine()
+                logger.info("Backtest engine initialized")
 
-        # Step 11: Initialize websockets for real-time data
-        if not self.is_backtest:
-            self._initialize_websockets()
+            # Step 10: Initialize paper trading if needed
+            if self.is_paper:
+                self._initialize_paper_trading()
+                logger.info("Paper trading engine initialized")
 
-        # Step 12: Initialize dashboard if requested
-        if self.with_dashboard:
-            self._initialize_dashboard()
+            # Step 11: Initialize websockets for real-time data
+            if not self.is_backtest:
+                try:
+                    self._initialize_websockets()
+                    logger.info("WebSocket connections initialized")
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to initialize WebSockets: {e}. Continuing without real-time data."
+                    )
 
-        # Step 13: Validate dependencies
-        if not self._validate_dependencies():
-            logger.error("Component dependencies validation failed")
-            raise RuntimeError("Failed to initialize all required components")
+            # Step 12: Initialize dashboard if requested
+            if self.with_dashboard:
+                try:
+                    self._initialize_dashboard()
+                    logger.info("Dashboard initialized")
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to initialize dashboard: {e}. Continuing without dashboard."
+                    )
 
-        logger.info("All components initialized successfully")
+            # Step 13: Validate dependencies
+            if not self._validate_dependencies():
+                logger.error("Component dependencies validation failed")
+                raise RuntimeError("Failed to initialize all required components")
+
+            logger.info("All components initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize components: {e}")
+            import traceback
+
+            logger.debug(traceback.format_exc())
+            raise
 
     def _initialize_api_client(self) -> None:
         """Initialize the API client."""
@@ -308,8 +443,10 @@ class TradingSystem:
             logger.error("Backtest configuration not found in config")
             raise ValueError("Backtest configuration required for backtest mode")
 
+        # Pass the existing config manager instead of the raw dictionary
+        # This way the BacktestEngine can use our already validated config
         self.backtest_engine = BacktestEngine(
-            config=config_dict,  # Pass the config as a dictionary
+            config_manager=self.config_manager,  # Pass the config manager instead of the raw dictionary
             market_data=self.market_data,
             indicator_manager=self.indicator_manager,
             strategy_manager=self.strategy_manager,
@@ -391,6 +528,9 @@ class TradingSystem:
         """Handle shutdown signal."""
         logger.info(f"Received shutdown signal: {signum}")
         self.shutdown_requested = True
+        # Give components a chance to finish current operations
+        if self.is_running:
+            logger.info("Initiating graceful shutdown, please wait...")
 
     def _shutdown(self):
         """Perform graceful system shutdown."""
@@ -399,29 +539,80 @@ class TradingSystem:
         # Set flags to stop processing loops
         self.is_running = False
 
-        # Save performance data
+        # Step 1: Save performance data
         if hasattr(self, "performance_tracker") and self.performance_tracker:
-            logger.info("Saving performance data")
-            self._save_performance_metrics()
+            try:
+                logger.info("Saving performance data")
+                output_dir = os.path.join("data", "performance")
+                os.makedirs(output_dir, exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                self.performance_tracker.save_performance_report(
+                    f"performance_report_{timestamp}"
+                )
+                logger.info(f"Performance data saved to {output_dir}")
+            except Exception as e:
+                logger.error(f"Failed to save performance data: {e}")
 
-        # Close WebSocket connections
-        if hasattr(self, "websocket_manager") and self.websocket_manager:
-            logger.info("Closing WebSocket connections")
-            # To be implemented: self.websocket_manager.close_all()
+        # Step 2: Close WebSocket connections
+        if hasattr(self, "api_client") and self.api_client:
+            try:
+                logger.info("Closing WebSocket connections")
+                # Check if websocket attribute exists and has appropriate close methods
+                if hasattr(self.api_client, "websocket"):
+                    websocket = self.api_client.websocket
+                    # Try different close methods based on what's available
+                    if hasattr(websocket, "close_all") and callable(
+                        getattr(websocket, "close_all")
+                    ):
+                        websocket.close_all()
+                    elif hasattr(websocket, "close") and callable(
+                        getattr(websocket, "close")
+                    ):
+                        websocket.close()
+                    elif hasattr(websocket, "stop") and callable(
+                        getattr(websocket, "stop")
+                    ):
+                        websocket.stop()
+                    else:
+                        logger.warning("No method found to close WebSocket connections")
+            except Exception as e:
+                logger.error(f"Error closing WebSocket connections: {e}")
 
-        # Close open positions in paper trading
-        if self.is_paper and hasattr(self, "trade_manager") and self.trade_manager:
-            logger.info("Closing paper trading positions")
-            # To be implemented: self.trade_manager.close_all_positions()
-
-        # Shut down dashboard if running
+        # Step 3: Close open positions in paper trading
         if (
-            self.with_dashboard
-            and hasattr(self, "dashboard_thread")
-            and self.dashboard_thread
+            self.is_paper
+            and hasattr(self, "paper_trading_engine")
+            and self.paper_trading_engine
         ):
-            logger.info("Shutting down dashboard")
-            # To be implemented: self.dashboard_thread.stop()
+            try:
+                logger.info("Closing paper trading positions")
+                self.paper_trading_engine.stop()
+            except Exception as e:
+                logger.error(f"Error closing paper trading positions: {e}")
+
+        # Step 4: Shut down dashboard if running
+        if hasattr(self, "dashboard_thread") and self.dashboard_thread:
+            try:
+                logger.info("Shutting down dashboard")
+                # Set a flag to notify dashboard to shut down
+                if hasattr(self, "dashboard_stop_event") and self.dashboard_stop_event:
+                    self.dashboard_stop_event.set()
+                    # Give the dashboard some time to shut down
+                    self.dashboard_thread.join(timeout=5)
+            except Exception as e:
+                logger.error(f"Error shutting down dashboard: {e}")
+
+        # Step 5: Perform final cleanup
+        try:
+            logger.info("Performing final cleanup")
+            # Close any remaining open resources
+
+            # Save system state if needed
+            if hasattr(self, "config_manager") and self.config_manager:
+                # Save any modified configuration
+                pass
+        except Exception as e:
+            logger.error(f"Error during final cleanup: {e}")
 
         logger.info("Shutdown complete")
 
