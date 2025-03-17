@@ -9,9 +9,9 @@ from typing import Dict, Any, List, Optional, Union, Type
 import pandas as pd
 from loguru import logger
 
-from src.strategies.base_strategy import BaseStrategy, Signal, SignalType
+from src.strategies.base_strategy import BaseStrategy
+from src.models.models import Signal, SignalType, SignalStrength
 from src.indicators.indicator_manager import IndicatorManager
-from src.models.models import SignalStrength
 
 from src.strategies.manager.loader import load_strategy_class
 from src.strategies.manager.signal_aggregator import (

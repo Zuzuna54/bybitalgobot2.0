@@ -1286,7 +1286,7 @@ class TradingSystem:
 
                                 if trade_id:
                                     trade = trade_manager.get_trade_by_id(trade_id)
-                                    performance_tracker.add_trade(trade)
+                                    performance_tracker.add_trade(trade.to_dict())
 
                         # Update active trades
                         trade_manager.update_active_trades(current_market_data)

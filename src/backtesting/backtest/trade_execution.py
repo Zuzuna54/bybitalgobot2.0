@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 import pandas as pd
 from loguru import logger
 
-from src.models.models import Signal
+from src.models.models import Signal, SignalType
 from src.risk_management.risk_manager import RiskManager
 from src.backtesting.backtest.utils import calculate_unrealized_pnl_pct
 
@@ -46,8 +46,8 @@ def execute_signal(
     if symbol in current_positions:
         return None
 
-    # Skip neutral signals
-    if signal.signal_type.name == "NEUTRAL":
+    # Skip neutral/none signals
+    if signal.signal_type == SignalType.NONE:
         return None
 
     # Check if we should take this trade based on risk management
