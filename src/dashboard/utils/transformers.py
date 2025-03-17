@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 from loguru import logger
 
-from src.dashboard.utils.cache import cached
+from src.dashboard.utils.enhanced_cache import cache
 from src.dashboard.utils.time_utils import (
     format_time_ago,
     format_duration,
@@ -31,7 +31,7 @@ class DataTransformer:
     """
 
     @staticmethod
-    @cached(ttl_seconds=300, key_prefix="transform_equity_data")
+    @cache(ttl=300, category="equity_data", priority=7)
     def transform_equity_data(equity_data: pd.DataFrame) -> Dict[str, Any]:
         """
         Transform equity data for dashboard visualizations.
@@ -147,7 +147,7 @@ class DataTransformer:
             }
 
     @staticmethod
-    @cached(ttl_seconds=300, key_prefix="transform_trade_data")
+    @cache(ttl=300, category="trade_data", priority=7)
     def transform_trade_data(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Transform trade data for dashboard visualizations.
@@ -332,7 +332,7 @@ class DataTransformer:
             }
 
     @staticmethod
-    @cached(ttl_seconds=60, key_prefix="transform_orderbook_data")
+    @cache(ttl=60, category="orderbook_data", priority=6)
     def transform_orderbook_data(
         orderbook: Dict[str, Any], depth: int = 10
     ) -> Dict[str, Any]:
@@ -475,7 +475,7 @@ class DataTransformer:
         return filter_data_by_time_range(data, time_range, date_column)
 
     @staticmethod
-    @cached(ttl_seconds=60, key_prefix="transform_strategy_data")
+    @cache(ttl=60, category="strategy_data", priority=7)
     def transform_strategy_data(strategy_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Transform strategy data for dashboard visualizations.
@@ -603,7 +603,7 @@ class DataTransformer:
             }
 
     @staticmethod
-    @cached(ttl_seconds=60, key_prefix="transform_market_data")
+    @cache(ttl=60, category="market_data", priority=6)
     def transform_market_data(market_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Transform market data for dashboard visualizations.

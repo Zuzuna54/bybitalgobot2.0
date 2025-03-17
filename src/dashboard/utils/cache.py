@@ -2,7 +2,8 @@
 Dashboard Caching Module
 
 This module provides utilities for caching data to improve performance in the dashboard.
-It includes both in-memory and persistent caching mechanisms.
+It includes both in-memory and persistent caching mechanisms, with enhanced memory
+management and optimization features.
 """
 
 import os
@@ -12,16 +13,37 @@ import time
 import hashlib
 import inspect
 import functools
-from typing import Dict, Any, Optional, List, Union, Callable, Tuple
-from functools import wraps
-from datetime import datetime, timedelta
 import threading
 import shutil
+import sys
+import gc
+from typing import Dict, Any, Optional, List, Union, Callable, Tuple, Set
+from functools import wraps
+from datetime import datetime, timedelta
+from collections import defaultdict
 
+# Import enhanced caching components
+from .enhanced_cache import (
+    EnhancedCache,
+    get_cache as get_enhanced_cache,
+    cache as enhanced_cache_decorator,
+    invalidate_cache as invalidate_enhanced_cache,
+    invalidate_category,
+    clear_all_caches,
+)
+from .memory_monitor import (
+    get_memory_monitor,
+    start_memory_monitoring,
+    get_current_memory_usage,
+    register_memory_alert_callback,
+)
 from .logger import get_logger, measure_execution_time
 from .config_manager import get_config_manager
 
 logger = get_logger("cache")
+
+# Initialize memory monitoring with appropriate thresholds
+start_memory_monitoring(warning_threshold_mb=800, critical_threshold_mb=1500)
 
 
 class CacheEntry:
@@ -106,6 +128,7 @@ class DashboardCache:
         cleanup_interval: int = 300,
         persistent: bool = False,
         cache_dir: Optional[str] = None,
+        use_enhanced_cache: bool = False,
     ):
         """
         Initialize the dashboard cache.
@@ -117,12 +140,14 @@ class DashboardCache:
             cleanup_interval: Interval in seconds for cache cleanup
             persistent: Whether to enable persistent storage
             cache_dir: Directory for persistent cache storage
+            use_enhanced_cache: Whether to use the enhanced caching system
         """
         self.name = name
         self.max_size = max_size
         self.default_ttl = default_ttl
         self.cleanup_interval = cleanup_interval
         self.persistent = persistent
+        self.use_enhanced_cache = use_enhanced_cache
 
         # Get configuration
         config = get_config_manager()
@@ -138,6 +163,11 @@ class DashboardCache:
             if persistent is not None
             else config.get_bool("dashboard.cache_persistent", False)
         )
+        self.use_enhanced_cache = (
+            use_enhanced_cache
+            if use_enhanced_cache is not None
+            else config.get_bool("dashboard.use_enhanced_cache", False)
+        )
 
         # Set up cache directory
         if cache_dir:
@@ -150,14 +180,29 @@ class DashboardCache:
         if self.persistent and not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir, exist_ok=True)
 
-        # Initialize the in-memory cache
-        self.cache: Dict[str, CacheEntry] = {}
+        # Initialize the in-memory cache or get enhanced cache
+        if self.use_enhanced_cache:
+            # Convert max_size to MB for enhanced cache (rough estimate)
+            max_size_mb = max(100, self.max_size / 10)  # Rough conversion
+            self._enhanced_cache = get_enhanced_cache(
+                name=self.name,
+                max_size_mb=max_size_mb,
+                cleanup_interval=self.cleanup_interval,
+                default_ttl=self.default_ttl,
+                eviction_policy="lru",
+            )
+            self.cache = {}  # Keep this for compatibility
+        else:
+            # Use traditional cache
+            self.cache: Dict[str, CacheEntry] = {}
+            # Enhanced cache is None
+            self._enhanced_cache = None
 
         # Set up cache lock for thread safety
         self.cache_lock = threading.RLock()
 
         # Start the cleanup thread
-        if self.cleanup_interval > 0:
+        if self.cleanup_interval > 0 and not self.use_enhanced_cache:
             self.start_cleanup_thread()
 
     def start_cleanup_thread(self) -> None:
@@ -182,6 +227,11 @@ class DashboardCache:
         Returns:
             Number of entries removed
         """
+        # If using enhanced cache, delegate to it
+        if self.use_enhanced_cache and self._enhanced_cache:
+            return self._enhanced_cache.cleanup()
+
+        # Otherwise use traditional cleanup
         removed_count = 0
 
         with self.cache_lock:
@@ -226,6 +276,11 @@ class DashboardCache:
         Returns:
             Generated cache key
         """
+        # If using enhanced cache, use its key generation
+        if self.use_enhanced_cache and self._enhanced_cache:
+            return f"{base_key}:{self._enhanced_cache.calculate_key(*args, **kwargs)}"
+
+        # Otherwise use traditional key generation
         # Create a string representation of the arguments
         arg_str = str(args) + str(sorted(kwargs.items()))
 
@@ -246,6 +301,11 @@ class DashboardCache:
         Returns:
             Cached value or default
         """
+        # If using enhanced cache, delegate to it
+        if self.use_enhanced_cache and self._enhanced_cache:
+            return self._enhanced_cache.get(key, default)
+
+        # Otherwise use traditional get
         with self.cache_lock:
             # Check in-memory cache
             entry = self.cache.get(key)
@@ -272,7 +332,14 @@ class DashboardCache:
         logger.debug(f"Cache miss for key: {key}")
         return default
 
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: Optional[int] = None,
+        category: str = "default",
+        priority: int = 5,
+    ) -> None:
         """
         Set a value in the cache.
 
@@ -280,7 +347,17 @@ class DashboardCache:
             key: Cache key
             value: Value to cache
             ttl: Time-to-live in seconds
+            category: Cache category (for enhanced cache)
+            priority: Cache priority (1-10, for enhanced cache)
         """
+        # If using enhanced cache, delegate to it
+        if self.use_enhanced_cache and self._enhanced_cache:
+            self._enhanced_cache.set(
+                key=key, value=value, ttl=ttl, category=category, priority=priority
+            )
+            return
+
+        # Otherwise use traditional set
         with self.cache_lock:
             # Use default TTL if not specified
             if ttl is None:
@@ -312,6 +389,11 @@ class DashboardCache:
         Returns:
             True if the key was deleted, False if it wasn't found
         """
+        # If using enhanced cache, delegate to it
+        if self.use_enhanced_cache and self._enhanced_cache:
+            return self._enhanced_cache.delete(key)
+
+        # Otherwise use traditional delete
         with self.cache_lock:
             # Remove from in-memory cache
             removed = self.cache.pop(key, None) is not None
@@ -332,6 +414,13 @@ class DashboardCache:
         Returns:
             Number of items cleared
         """
+        # If using enhanced cache, delegate to it
+        if self.use_enhanced_cache and self._enhanced_cache:
+            count = len(self._enhanced_cache._cache)
+            self._enhanced_cache.clear()
+            return count
+
+        # Otherwise use traditional clear
         with self.cache_lock:
             count = len(self.cache)
             self.cache.clear()
@@ -354,6 +443,15 @@ class DashboardCache:
         Returns:
             True if the key was found and refreshed, False otherwise
         """
+        # If using enhanced cache, we need to get and reset the value
+        if self.use_enhanced_cache and self._enhanced_cache:
+            value = self._enhanced_cache.get(key)
+            if value is not None:
+                self._enhanced_cache.set(key, value, ttl)
+                return True
+            return False
+
+        # Otherwise use traditional refresh
         with self.cache_lock:
             entry = self.cache.get(key)
 
@@ -371,6 +469,13 @@ class DashboardCache:
         Returns:
             Dictionary of cache statistics
         """
+        # If using enhanced cache, get its stats
+        if self.use_enhanced_cache and self._enhanced_cache:
+            stats = self._enhanced_cache.get_stats()
+            stats["cache_type"] = "enhanced"
+            return stats
+
+        # Otherwise get traditional stats
         with self.cache_lock:
             # Count expired entries
             expired_count = sum(
@@ -392,6 +497,7 @@ class DashboardCache:
                 "avg_age_seconds": avg_age,
                 "persistent": self.persistent,
                 "cache_dir": self.cache_dir if self.persistent else None,
+                "cache_type": "traditional",
             }
 
         return stats
@@ -545,37 +651,66 @@ class DashboardCache:
 _cache_instance = None
 
 
-def get_cache() -> DashboardCache:
+def get_cache(use_enhanced: bool = None) -> DashboardCache:
     """
     Get the singleton cache instance.
+
+    Args:
+        use_enhanced: Whether to use the enhanced cache system
 
     Returns:
         The dashboard cache instance
     """
     global _cache_instance
 
-    if _cache_instance is None:
-        _cache_instance = DashboardCache()
+    # Get configuration
+    config = get_config_manager()
+
+    # Determine whether to use enhanced cache if not specified
+    if use_enhanced is None:
+        use_enhanced = config.get_bool("dashboard.use_enhanced_cache", False)
+
+    # If no instance exists or cache type mismatch, create a new one
+    if _cache_instance is None or _cache_instance.use_enhanced_cache != use_enhanced:
+        _cache_instance = DashboardCache(use_enhanced_cache=use_enhanced)
 
     return _cache_instance
 
 
-def cached(ttl: Optional[int] = None, key_prefix: Optional[str] = None):
+def cached(
+    ttl: Optional[int] = None,
+    key_prefix: Optional[str] = None,
+    category: str = "default",
+    priority: int = 5,
+    use_enhanced: bool = None,
+):
     """
     Decorator for caching function results.
 
     Args:
         ttl: Time-to-live in seconds
         key_prefix: Optional prefix for the cache key
+        category: Cache category (for enhanced cache)
+        priority: Cache priority (1-10, for enhanced cache)
+        use_enhanced: Whether to use the enhanced cache system
 
     Returns:
         Decorated function
     """
+    # Determine which cache system to use
+    config = get_config_manager()
+    if use_enhanced is None:
+        use_enhanced = config.get_bool("dashboard.use_enhanced_cache", False)
 
+    # If using enhanced cache, use its decorator
+    if use_enhanced:
+        return enhanced_cache_decorator(ttl=ttl, category=category, priority=priority)
+
+    # Otherwise use traditional decorator
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            cache = get_cache()
+            cache = get_cache(use_enhanced=False)
 
             # Generate cache key
             func_name = key_prefix or func.__name__
@@ -599,17 +734,34 @@ def cached(ttl: Optional[int] = None, key_prefix: Optional[str] = None):
     return decorator
 
 
-def invalidate_cache(key_prefix: str) -> int:
+def invalidate_cache(key_prefix: str, use_enhanced: bool = None) -> int:
     """
     Invalidate cache entries with the given prefix.
 
     Args:
         key_prefix: Prefix for cache keys to invalidate
+        use_enhanced: Whether to use the enhanced cache system
 
     Returns:
         Number of entries invalidated
     """
-    cache = get_cache()
+    # Determine which cache system to use
+    config = get_config_manager()
+    if use_enhanced is None:
+        use_enhanced = config.get_bool("dashboard.use_enhanced_cache", False)
+
+    # If using enhanced cache, use its invalidation
+    if use_enhanced:
+        # Create a dummy function to use with the enhanced invalidator
+        def dummy_func():
+            pass
+
+        dummy_func.__module__ = "dummy"
+        dummy_func.__qualname__ = key_prefix
+        return 1 if invalidate_enhanced_cache(dummy_func) else 0
+
+    # Otherwise use traditional invalidation
+    cache = get_cache(use_enhanced=False)
     count = 0
 
     with cache.cache_lock:
@@ -627,20 +779,26 @@ def invalidate_cache(key_prefix: str) -> int:
     return count
 
 
-def precache(func: Callable, *args, **kwargs) -> Any:
+def precache(func: Callable, *args, use_enhanced: bool = None, **kwargs) -> Any:
     """
     Pre-cache a function call.
 
     Args:
         func: Function to call and cache
         *args: Function arguments
+        use_enhanced: Whether to use the enhanced cache system
         **kwargs: Function keyword arguments
 
     Returns:
         Function result
     """
-    # Get cache
-    cache = get_cache()
+    # Determine which cache system to use
+    config = get_config_manager()
+    if use_enhanced is None:
+        use_enhanced = config.get_bool("dashboard.use_enhanced_cache", False)
+
+    # Get appropriate cache
+    cache = get_cache(use_enhanced=use_enhanced)
 
     # Generate cache key
     cache_key = cache._generate_key(func.__name__, args, kwargs)
@@ -663,10 +821,31 @@ class CacheManager:
     with support for automatic invalidation based on timestamps.
     """
 
-    def __init__(self):
-        """Initialize the cache manager."""
-        self._cache = {}
-        self._timestamps = {}
+    def __init__(self, use_enhanced: bool = None):
+        """
+        Initialize the cache manager.
+
+        Args:
+            use_enhanced: Whether to use enhanced caching
+        """
+        # Determine cache type
+        config = get_config_manager()
+        if use_enhanced is None:
+            use_enhanced = config.get_bool("dashboard.use_enhanced_cache", False)
+
+        self.use_enhanced = use_enhanced
+
+        if use_enhanced:
+            # Use EnhancedCache
+            self._enhanced_cache = get_enhanced_cache("manager_cache")
+            self._cache = {}  # Dummy for compatibility
+            self._timestamps = {}  # Dummy for compatibility
+        else:
+            # Use traditional cache
+            self._cache = {}
+            self._timestamps = {}
+            self._enhanced_cache = None
+
         self._lock = threading.RLock()
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -680,6 +859,9 @@ class CacheManager:
         Returns:
             Cached value or default
         """
+        if self.use_enhanced and self._enhanced_cache:
+            return self._enhanced_cache.get(key, default)
+
         with self._lock:
             return self._cache.get(key, default)
 
@@ -692,6 +874,10 @@ class CacheManager:
             value: Value to cache
             ttl_seconds: Time-to-live in seconds (None means no expiration)
         """
+        if self.use_enhanced and self._enhanced_cache:
+            self._enhanced_cache.set(key, value, ttl_seconds)
+            return
+
         with self._lock:
             self._cache[key] = value
             if ttl_seconds is not None:
@@ -707,6 +893,10 @@ class CacheManager:
         Args:
             key: The cache key to invalidate
         """
+        if self.use_enhanced and self._enhanced_cache:
+            self._enhanced_cache.delete(key)
+            return
+
         with self._lock:
             if key in self._cache:
                 del self._cache[key]
@@ -719,6 +909,15 @@ class CacheManager:
         Args:
             pattern: String pattern to match (simple contains check)
         """
+        if self.use_enhanced and self._enhanced_cache:
+            # Enhanced cache stores keys in internal dictionary
+            keys_to_remove = [
+                k for k in self._enhanced_cache._cache.keys() if pattern in k
+            ]
+            for key in keys_to_remove:
+                self._enhanced_cache.delete(key)
+            return
+
         with self._lock:
             keys_to_remove = [k for k in self._cache.keys() if pattern in k]
             for key in keys_to_remove:
@@ -727,6 +926,10 @@ class CacheManager:
 
     def invalidate_all(self) -> None:
         """Invalidate all cached values."""
+        if self.use_enhanced and self._enhanced_cache:
+            self._enhanced_cache.clear()
+            return
+
         with self._lock:
             self._cache.clear()
             self._timestamps.clear()
@@ -741,6 +944,11 @@ class CacheManager:
         Returns:
             True if valid, False otherwise
         """
+        if self.use_enhanced and self._enhanced_cache:
+            # Just check if the key exists in the enhanced cache
+            # (enhanced cache automatically handles expiration)
+            return self._enhanced_cache.get(key) is not None
+
         with self._lock:
             if key not in self._cache:
                 return False
@@ -758,6 +966,10 @@ class CacheManager:
         Returns:
             Number of entries removed
         """
+        if self.use_enhanced and self._enhanced_cache:
+            # Enhanced cache handles this automatically
+            return self._enhanced_cache.cleanup()
+
         with self._lock:
             now = datetime.now()
             keys_to_remove = [
@@ -775,9 +987,44 @@ class CacheManager:
 cache_manager = CacheManager()
 
 
-def cached(ttl_seconds: Optional[int] = 60, key_prefix: str = ""):
+def memory_usage_callback(
+    level: str, memory_info: Dict[str, Any], message: str
+) -> None:
     """
-    Decorator for caching function results.
+    Callback for memory usage alerts.
+
+    Args:
+        level: Alert level ("warning" or "critical")
+        memory_info: Memory information
+        message: Alert message
+    """
+    logger.warning(f"Memory alert ({level}): {message}")
+
+    # On critical alert, clear all caches
+    if level == "critical":
+        clear_all_caches()
+        cache_manager.invalidate_all()
+        # Force garbage collection
+        gc.collect()
+        logger.warning("All caches cleared due to critical memory usage")
+    # On warning, clean up expired entries
+    elif level == "warning":
+        cache_manager.clean_expired()
+        # Clean traditional cache if it exists
+        cache = get_cache(use_enhanced=False)
+        if cache:
+            cache.cleanup()
+        logger.info("Cache cleanup triggered due to memory warning")
+
+
+# Register the memory usage callback
+register_memory_alert_callback(memory_usage_callback)
+
+
+# Keep existing decorators for backward compatibility
+def cached_legacy(ttl_seconds: Optional[int] = 60, key_prefix: str = ""):
+    """
+    Decorator for caching function results using the legacy cache manager.
 
     Args:
         ttl_seconds: Time-to-live in seconds (None means no expiration)

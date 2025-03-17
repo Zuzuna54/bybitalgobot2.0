@@ -403,43 +403,374 @@ Proper error handling is essential for a robust dashboard. Follow these guidelin
 
 ## Performance Optimization
 
-Keep the dashboard responsive and efficient with these practices:
+The dashboard includes a comprehensive performance optimization system to ensure responsiveness and efficiency, even with large datasets and complex visualizations. This section outlines the key optimization components and how to use them effectively.
 
-### Callback Optimization
+### Enhanced Caching System
 
-1. **Minimize Trigger Frequency**:
+The enhanced caching system provides sophisticated caching mechanisms with memory awareness and multiple eviction policies.
 
-   - Use appropriate interval times for auto-refreshing components
-   - Consider using debounce patterns for input-driven updates
+1. **Using Enhanced Cache Decorators**:
 
-2. **Use Pattern-Matching Callbacks**:
-
-   - For similar components, use pattern-matching callbacks instead of individual ones
-   - Helps when dynamically generating components
-
-3. **Implement Clientside Callbacks**:
    ```python
-   app.clientside_callback(
-       """
-       function(value) {
-           return value.toUpperCase();
-       }
-       """,
-       Output("client-output", "children"),
-       Input("client-input", "value")
+   from src.dashboard.utils.enhanced_cache import cache
+
+   @cache(ttl=300, category="market_data", priority=8)
+   def fetch_market_data(symbol):
+       # Expensive operation to fetch market data
+       return data
+   ```
+
+2. **Direct Cache Access**:
+
+   ```python
+   from src.dashboard.utils.enhanced_cache import get_cache
+
+   # Get a cache instance
+   cache = get_cache(
+       name="strategy_cache",
+       max_size_mb=100,
+       cleanup_interval=300,
+       default_ttl=600,
+       eviction_policy="lru"  # Options: "lru", "lfu", "fifo", "priority"
+   )
+
+   # Store data
+   cache.set(
+       key="strategy_performance:MACD",
+       value=performance_data,
+       ttl=300,  # 5 minutes
+       category="strategy",
+       priority=7  # Higher = more important (1-10)
+   )
+
+   # Retrieve data
+   data = cache.get("strategy_performance:MACD")
+   ```
+
+3. **Cache Categories and Invalidation**:
+
+   ```python
+   from src.dashboard.utils.enhanced_cache import invalidate_category
+
+   # Invalidate all entries in a category
+   invalidate_category("market_data")
+
+   # Invalidate a specific function's cached results
+   from src.dashboard.utils.enhanced_cache import invalidate_cache
+   invalidate_cache(fetch_market_data, symbol="BTCUSD")
+   ```
+
+4. **Monitoring Cache Performance**:
+
+   ```python
+   # Get cache statistics
+   stats = cache.get_stats()
+   print(f"Cache hit ratio: {stats['hit_ratio'] * 100:.1f}%")
+   print(f"Cache size: {stats['size_mb']:.2f} MB")
+   print(f"Entries by category: {stats['categories']}")
+   ```
+
+### Memory Monitoring
+
+The memory monitoring system tracks memory usage and provides alerts when thresholds are exceeded.
+
+1. **Starting the Memory Monitor**:
+
+   ```python
+   from src.dashboard.utils.memory_monitor import start_memory_monitoring
+
+   # Start with custom thresholds
+   start_memory_monitoring(
+       warning_threshold_mb=800,
+       critical_threshold_mb=1500
    )
    ```
 
-### Data Loading Strategies
+2. **Registering Alert Handlers**:
 
-1. **Implement Lazy Loading**:
+   ```python
+   from src.dashboard.utils.memory_monitor import register_memory_alert_callback
 
-   - Load data only when tabs become active
-   - Use dcc.Loading for visual feedback
+   def handle_memory_alert(level, memory_info, message):
+       if level == "critical":
+           # Take emergency action like clearing caches
+           from src.dashboard.utils.enhanced_cache import clear_all_caches
+           clear_all_caches()
+           logger.critical(f"Memory alert: {message}")
+       elif level == "warning":
+           # Take less drastic action
+           logger.warning(f"Memory alert: {message}")
 
-2. **Progressive Enhancement**:
-   - Show simple views first, then enhance with detailed data
-   - Consider skeleton loading patterns
+   register_memory_alert_callback(handle_memory_alert)
+   ```
+
+3. **Checking Memory Usage**:
+
+   ```python
+   from src.dashboard.utils.memory_monitor import get_current_memory_usage, get_memory_monitor
+
+   # Get current usage
+   usage = get_current_memory_usage()
+   print(f"Current memory: {usage['rss'] / (1024*1024):.1f} MB")
+
+   # Get memory trend
+   monitor = get_memory_monitor()
+   trend = monitor.get_memory_trend()
+   print(f"Memory trend: {trend['trend']}")
+   print(f"Growth rate: {trend['rate_mb_per_minute']:.2f} MB/min")
+   ```
+
+### Callback Optimization
+
+The callback optimization system analyzes callback dependencies and provides tools for improving callback performance.
+
+1. **Using Optimized Callbacks**:
+
+   ```python
+   from src.dashboard.router.callback_registry import CallbackRegistry
+
+   # Get the registry (typically from your app instance)
+   registry = app.callback_registry  # Or however you access it
+
+   # Register an optimized callback
+   @registry.register_optimized_callback(
+       outputs=[Output('graph', 'figure')],
+       inputs=[
+           Input('dropdown', 'value'),
+           Input('interval', 'n_intervals')
+       ],
+       throttle_ms=500,  # Limit to execute at most once every 500ms
+       debounce_ms=200,  # Wait for inputs to settle
+       callback_id="update_graph",  # Optional identifier
+       priority=7  # Higher priority callbacks execute first
+   )
+   def update_graph(dropdown_value, n_intervals):
+       # Callback logic
+       return figure
+   ```
+
+2. **Analyzing Callback Performance**:
+
+   ```python
+   # Get performance statistics
+   stats = registry.get_performance_stats()
+
+   # Check execution times
+   for name, time in stats['execution_times'].items():
+       print(f"Callback {name}: {time:.3f}s")
+
+   # Get dependency optimizer statistics
+   optimizer_stats = stats['optimizer']
+   print(f"Total callbacks: {optimizer_stats['total_callbacks']}")
+   print(f"Avg execution time: {optimizer_stats['avg_execution_time_ms']} ms")
+   ```
+
+3. **Finding Optimization Opportunities**:
+
+   ```python
+   # From your app instance
+   report = app.callback_registry.optimizer.generate_optimization_report()
+
+   # Check recommendations
+   for rec in report['recommendations']:
+       print(f"- {rec['description']}")
+
+   # Find expensive callbacks
+   expensive = report['expensive_callbacks']
+   for cb in expensive:
+       print(f"Callback {cb['id']}: {cb['avg_time_ms']} ms, called {cb['call_count']} times")
+   ```
+
+### Clientside Callbacks
+
+Clientside callbacks move callback execution to the browser for UI-only updates, reducing server load and improving responsiveness.
+
+1. **Basic Clientside Callback Registration**:
+
+   ```python
+   from src.dashboard.utils.clientside_callbacks import register_clientside_callback
+
+   # Register a custom clientside callback
+   register_clientside_callback(
+       app,
+       outputs=Output("output-div", "children"),
+       inputs=Input("input-field", "value"),
+       clientside_function="""
+           function(value) {
+               return value ? "You entered: " + value : "Enter something...";
+           }
+       """
+   )
+   ```
+
+2. **Common UI Patterns**:
+
+   ```python
+   from src.dashboard.utils.clientside_callbacks import (
+       register_visibility_toggle,
+       register_tab_content_visibility,
+       register_dropdown_options_update
+   )
+
+   # Toggle component visibility
+   register_visibility_toggle(
+       app,
+       container_id="collapsible-content",
+       trigger_id="toggle-button",
+       trigger_property="n_clicks",
+       initial_state=False
+   )
+
+   # Handle tab content visibility
+   register_tab_content_visibility(
+       app,
+       tab_content_prefix="tab-content-",
+       tabs_id="main-tabs",
+       tab_count=3
+   )
+
+   # Update dropdown options from store
+   register_dropdown_options_update(
+       app,
+       dropdown_id="symbol-selector",
+       data_store_id="available-symbols-store"
+   )
+   ```
+
+3. **Status Indicators**:
+
+   ```python
+   from src.dashboard.utils.clientside_callbacks import register_status_indicator_update
+
+   # Update status indicator based on status store
+   register_status_indicator_update(
+       app,
+       indicator_id="connection-status",
+       status_store_id="connection-status-store",
+       class_mapping={
+           "connected": "status-connected",
+           "connecting": "status-connecting",
+           "disconnected": "status-disconnected"
+       }
+   )
+   ```
+
+### Pattern Matching Callbacks
+
+Pattern matching utilities help optimize multiple similar callbacks into a single callback with shared logic.
+
+1. **Basic Pattern Matching**:
+
+   ```python
+   from src.dashboard.utils.pattern_matching import (
+       register_pattern_callback,
+       create_pattern_id
+   )
+
+   # Create component IDs with pattern
+   symbol_display = html.Div([
+       html.Div(id=create_pattern_id("price", "BTC"), children="Loading..."),
+       html.Div(id=create_pattern_id("price", "ETH"), children="Loading..."),
+       html.Div(id=create_pattern_id("price", "SOL"), children="Loading...")
+   ])
+
+   # Register a single callback that updates all price displays
+   register_pattern_callback(
+       app,
+       outputs=Output({"type": "price", "index": MATCH}, "children"),
+       inputs=Input("price-data-store", "data"),
+       pattern_type="price",
+       callback_func=lambda index, data: f"{index}: ${data.get(index, 0):.2f}"
+   )
+   ```
+
+2. **Finding Matching Components**:
+
+   ```python
+   from src.dashboard.utils.pattern_matching import find_matching_components
+
+   # Find all price display components
+   component_ids = ["price-BTC", "price-ETH", "volume-BTC", "marketcap-BTC"]
+   price_components = find_matching_components(r"^price-", component_ids)
+   # Result: ["price-BTC", "price-ETH"]
+   ```
+
+3. **Multi-output Callbacks**:
+
+   ```python
+   from src.dashboard.utils.pattern_matching import create_multi_output_callback
+
+   # Update multiple components with a single callback
+   create_multi_output_callback(
+       app,
+       component_ids=["btc-price", "eth-price", "sol-price"],
+       property_name="children",
+       input_id="price-update-interval",
+       input_property="n_intervals",
+       callback_func=lambda n_intervals, *args: [
+           f"BTC: ${fetch_price('BTC'):.2f}",
+           f"ETH: ${fetch_price('ETH'):.2f}",
+           f"SOL: ${fetch_price('SOL'):.2f}"
+       ]
+   )
+   ```
+
+4. **Using the DynamicCallbackManager**:
+
+   ```python
+   from src.dashboard.utils.pattern_matching import DynamicCallbackManager
+
+   # Create a manager instance
+   manager = DynamicCallbackManager(app)
+
+   # Register dynamic callbacks
+   manager.register_dynamic_callback(
+       output_pattern="indicator",
+       output_property="style",
+       input_pattern="threshold",
+       input_property="value",
+       callback_func=lambda index, value, *args:
+           {"color": "green" if value > 0 else "red"}
+   )
+   ```
+
+### Best Practices for Performance
+
+1. **Choose the Right Optimization**:
+
+   - **Use Enhanced Caching** for expensive data operations
+   - **Use Clientside Callbacks** for UI-only updates
+   - **Use Pattern Matching** for similar components
+   - **Use Throttling/Debouncing** for high-frequency updates
+
+2. **Cache Optimization**:
+
+   - Set appropriate TTLs based on data volatility
+   - Use categories to organize cache entries
+   - Set priorities based on importance
+   - Monitor cache hit ratio (aim for >80%)
+
+3. **Memory Management**:
+
+   - Monitor memory usage trends
+   - Register handlers for memory alerts
+   - Implement cleanup procedures for large datasets
+   - Use the memory monitor to detect leaks
+
+4. **Callback Performance**:
+
+   - Minimize callback dependencies
+   - Use throttling for interval-based updates
+   - Review optimization reports regularly
+   - Combine related callbacks when possible
+
+5. **Data Loading**:
+   - Load data only when needed
+   - Use progressive enhancement
+   - Implement pagination for large datasets
+   - Consider downsample/aggregate techniques for visualization
+
+For more detailed information about performance optimizations, refer to the comprehensive guide in `docs/PERFORMANCE_OPTIMIZATION.md`.
 
 ## Testing
 

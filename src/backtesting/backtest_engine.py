@@ -5,6 +5,6 @@ This module provides functionality for backtesting trading strategies on histori
 """
 
 # Re-export BacktestEngine from the refactored module
-from src.testing.backtest import BacktestEngine
+from src.backtesting.backtest import BacktestEngine
 
-__all__ = ["BacktestEngine"] 
+__all__ = ["BacktestEngine"]

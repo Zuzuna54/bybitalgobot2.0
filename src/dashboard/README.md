@@ -32,6 +32,7 @@ The dashboard follows a modular architecture with clear separation of concerns:
 4. **Router**: Handles URL routing and page navigation through the `router/` directory components, with centralized callback registration in `router/callbacks.py`.
 5. **Callback System**: Manages interactive updates and user interactions through Dash callbacks using the `CallbackRegistry` class and `@callback_registrar` decorator for standardized callback management.
 6. **Utilities**: Helper functions, formatters, validators, and other utilities that support dashboard operations, organized in the `utils/` directory.
+7. **Performance Optimization System**: A comprehensive set of utilities for optimizing dashboard performance, including enhanced caching, memory monitoring, and callback optimization.
 
 ### Design Patterns
 
@@ -44,6 +45,8 @@ The dashboard follows a modular architecture with clear separation of concerns:
 - **Registry Pattern**: The callback registration system uses a registry pattern to centralize and organize callbacks.
 - **Decorator-based Registration**: The `@callback_registrar` decorator simplifies callback registration and improves code organization.
 - **Module Decomposition**: Large service modules are decomposed into domain-specific submodules for improved maintainability.
+- **Clientside Callbacks**: UI-only updates are optimized by running callback logic directly in the browser.
+- **Pattern Matching Callbacks**: Similar callbacks are consolidated using pattern matching to reduce duplication.
 
 ## Key Components
 
@@ -80,6 +83,13 @@ The dashboard is organized into multiple tabs/sections:
 
 3. **Notification Service**: Manages system notifications and alerts, providing real-time feedback to users.
 
+4. **Performance Optimization System**: A set of utilities for optimizing dashboard performance:
+   - **Enhanced Caching**: Smart caching with memory-aware eviction policies
+   - **Memory Monitoring**: Real-time tracking of memory usage with alert systems
+   - **Callback Optimization**: Dependency graph analysis and callback performance tracking
+   - **Clientside Callbacks**: Browser-based execution of UI update logic
+   - **Pattern Matching**: Optimization of similar callbacks to reduce duplication
+
 ### Components
 
 Various reusable UI components such as:
@@ -107,7 +117,7 @@ Various reusable UI components such as:
    - Data is cached using timestamp-based invalidation to minimize redundant processing
    - Data freshness is tracked through the `_data_updated_at` dictionary to manage update frequency
    - Complex transformations are handled by utility functions in the `utils/` directory
-   - Enhanced caching mechanisms implemented for frequently accessed data
+   - Enhanced caching mechanisms implemented for frequently accessed data with intelligent eviction policies and memory monitoring
 
 3. **Data Visualization**:
 
@@ -124,6 +134,8 @@ Various reusable UI components such as:
    - Changes are reflected in real-time across the dashboard through state stores and shared outputs
    - Modal confirmation dialogs protect critical system actions
    - The centralized callback registration system provides improved error handling and logging
+   - Clientside callbacks handle UI-only updates directly in the browser for improved responsiveness
+   - Pattern matching utilities reduce callback duplication for similar components
 
 5. **System Integration**:
    - The dashboard integrates with various components of the trading system through the data service interface
@@ -189,6 +201,9 @@ dashboard/
 │       ├── signals_view.py     # Strategy signals view
 │       └── callbacks.py  # Strategy component callbacks
 │
+├── docs/                 # Documentation files
+│   └── PERFORMANCE_OPTIMIZATION.md # Detailed guide on performance optimizations
+│
 ├── layouts/              # Page layouts
 │   ├── __init__.py       # Layouts package initialization
 │   ├── main_layout.py    # Main dashboard layout
@@ -201,7 +216,8 @@ dashboard/
 │   ├── __init__.py       # Router package initialization
 │   ├── routes.py         # URL route definitions
 │   ├── callback_registry.py # Callback registry system
-│   └── callbacks.py      # Centralized callback registration
+│   ├── callbacks.py      # Centralized callback registration
+│   └── dependency_optimizer.py # Callback dependency optimization
 │
 ├── services/             # Data and business logic
 │   ├── __init__.py       # Services package initialization
@@ -248,14 +264,15 @@ dashboard/
     ├── __init__.py       # Utils package initialization
     ├── README.md         # Utils documentation
     ├── helper.py         # General utility functions
-    ├── cache.py          # Data caching utilities
-    ├── converters.py     # Data conversion utilities
-    ├── formatter.py      # Data formatting utilities
+    ├── cache.py          # Basic caching system
+    ├── enhanced_cache.py # Advanced caching with memory awareness
+    ├── memory_monitor.py # Memory usage monitoring system
+    ├── clientside_callbacks.py # Browser-based callback optimization
+    ├── pattern_matching.py # Pattern matching for callback optimization
+    ├── logger.py         # Logging utility
     ├── transformers.py   # Data transformation utilities
-    ├── time_utils.py     # Time-related utility functions
-    ├── logger.py         # Custom logging configuration
-    ├── validators.py      # Input validation utilities
-    └── config_manager.py # Configuration management
+    ├── formatters.py     # Formatting utilities
+    └── validators.py     # Data validation utilities
 ```
 
 ## Implementation Details
@@ -289,7 +306,7 @@ The `DashboardDataService` is now organized into domain-specific modules with th
 3. Caching mechanism to avoid redundant computation
 4. Timestamp tracking for data freshness
 5. Fallback to sample data when running in standalone mode
-6. Enhanced caching for frequently accessed data
+6. Enhanced caching for frequently accessed data with intelligent eviction policies and memory monitoring
 
 ### Callback Registration System
 
@@ -494,13 +511,43 @@ To add a new dashboard tab:
 
 ## Performance Considerations
 
-The dashboard is designed with performance in mind:
+The dashboard is designed with performance in mind, implementing several optimization strategies:
 
-1. **Modular Structure**: Domain-specific modules improve code organization and maintainability
-2. **Data Caching**: Frequently accessed data is cached to minimize redundant processing
-3. **Lazy Loading**: Components are loaded on-demand to improve initial load times
-4. **Optimized Callback Dependencies**: Callbacks are designed to minimize unnecessary updates
-5. **Throttled Updates**: Update intervals are configured to balance freshness and performance
+1. **Enhanced Caching System**:
+
+   - Memory-aware caching with smart eviction policies (LRU, LFU, FIFO, priority-based)
+   - Categorized cache entries for domain-specific management
+   - Automatic cache trimming based on memory pressure
+   - Detailed cache statistics for monitoring and tuning
+
+2. **Memory Management**:
+
+   - Real-time memory usage monitoring with configurable thresholds
+   - Trend analysis to identify memory leaks and growth patterns
+   - Automatic garbage collection during critical memory pressure
+   - Detailed object statistics for memory profiling
+
+3. **Callback Optimization**:
+
+   - Dependency graph analysis to identify redundant or inefficient callbacks
+   - Throttling and debouncing for high-frequency updates
+   - Performance tracking for callback execution time
+   - Detection of cascading callbacks for optimization
+
+4. **Clientside Callbacks**:
+
+   - UI-only updates execute directly in the browser
+   - Reduced server load for common interaction patterns
+   - Improved responsiveness for user interactions
+   - Pattern-matching for similar components to reduce duplication
+
+5. **Data Loading Strategies**:
+   - Lazy loading of data for inactive tabs
+   - Progressive enhancement of visualizations
+   - Efficient data transformations using vectorized operations
+   - Time-based data aggregation for large datasets
+
+Comprehensive documentation on the performance optimization system can be found in `docs/PERFORMANCE_OPTIMIZATION.md`.
 
 ## Development Roadmap
 

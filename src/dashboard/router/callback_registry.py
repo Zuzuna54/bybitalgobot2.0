@@ -7,7 +7,13 @@ and provides utilities for managing callback dependencies.
 
 from typing import Dict, Any, Optional, Callable, List, Protocol, TypeVar, Union
 import dash
+from dash import Input, Output, State
 from loguru import logger
+import time
+import inspect
+import uuid
+
+from .dependency_optimizer import optimize_callback, create_callback_optimizer
 
 # Type definitions
 AppInstance = TypeVar("AppInstance", bound=dash.Dash)
@@ -58,6 +64,17 @@ class CallbackRegistry:
         self.data_service = data_service
         self.registrars: Dict[str, CallbackRegistrar] = {}
         self.registered: List[str] = []
+        self.execution_times: Dict[str, float] = {}
+        self.execution_counts: Dict[str, int] = {}
+
+        # Initialize callback optimizer
+        self.optimizer = create_callback_optimizer(app)
+
+        # Set flag for using optimized registration
+        self.use_optimization = True
+
+        # Time tracking
+        self.start_time = time.time()
 
     def register(self, name: str, registrar: CallbackRegistrar) -> None:
         """
@@ -87,6 +104,7 @@ class CallbackRegistry:
             return
 
         logger.info(f"Executing callback registrar: {name}")
+        start_time = time.time()
 
         try:
             # Call the registrar with standard parameters plus any additional kwargs
@@ -94,7 +112,15 @@ class CallbackRegistry:
                 app=self.app, data_service=self.data_service, **kwargs
             )
             self.registered.append(name)
-            logger.info(f"Successfully executed callback registrar: {name}")
+
+            # Track execution time
+            elapsed = time.time() - start_time
+            self.execution_times[name] = elapsed
+            self.execution_counts[name] = self.execution_counts.get(name, 0) + 1
+
+            logger.info(
+                f"Successfully executed callback registrar: {name} in {elapsed:.2f}s"
+            )
         except Exception as e:
             logger.error(f"Error executing callback registrar {name}: {str(e)}")
             logger.exception(e)
@@ -107,13 +133,36 @@ class CallbackRegistry:
             **kwargs: Additional keyword arguments to pass to all registrars
         """
         logger.info("Executing all callback registrars")
+        overall_start = time.time()
 
-        for name in self.registrars:
+        # Get optimized execution order if available
+        if hasattr(self, "optimizer") and self.use_optimization:
+            # For initial setup, we can't optimize yet
+            # We'll rely on the dependency graph built during execution
+            registrars_to_execute = list(self.registrars.keys())
+        else:
+            registrars_to_execute = list(self.registrars.keys())
+
+        for name in registrars_to_execute:
             self.execute(name, **kwargs)
 
+        elapsed = time.time() - overall_start
         logger.info(
-            f"Completed execution of {len(self.registered)} callback registrars"
+            f"Completed execution of {len(self.registered)} callback registrars in {elapsed:.2f}s"
         )
+
+        # Generate optimization report if appropriate
+        if hasattr(self, "optimizer") and self.use_optimization:
+            try:
+                report = self.optimizer.generate_optimization_report()
+                if report["recommendations"]:
+                    logger.info(
+                        f"Optimization recommendations available: {len(report['recommendations'])}"
+                    )
+                    for rec in report["recommendations"]:
+                        logger.info(f"- {rec['description']}")
+            except Exception as e:
+                logger.error(f"Error generating optimization report: {str(e)}")
 
     def get_data_access_function(self, func_name: str) -> Optional[DataAccessFunc]:
         """
@@ -138,6 +187,85 @@ class CallbackRegistry:
             return None
 
         return func
+
+    def register_optimized_callback(
+        self,
+        outputs: List[Output],
+        inputs: List[Union[Input, State]],
+        callback_function: Callable,
+        callback_id: Optional[str] = None,
+        throttle_ms: Optional[int] = None,
+        debounce_ms: Optional[int] = None,
+        batch_updates: bool = False,
+        priority: int = 5,
+    ) -> Callable:
+        """
+        Register an optimized callback with the dependency optimizer.
+
+        Args:
+            outputs: List of outputs
+            inputs: List of inputs
+            callback_function: Callback function
+            callback_id: Optional callback ID (will be auto-generated if None)
+            throttle_ms: Optional throttle timeout in milliseconds
+            debounce_ms: Optional debounce timeout in milliseconds
+            batch_updates: Whether to batch updates
+            priority: Priority level (1-10)
+
+        Returns:
+            The wrapped callback function
+        """
+        if not self.use_optimization:
+            # Fall back to regular Dash callback
+            return self.app.callback(*outputs, inputs=inputs)(callback_function)
+
+        # Generate a unique ID if not provided
+        if callback_id is None:
+            # Try to use the function name
+            callback_id = (
+                f"{callback_function.__module__}.{callback_function.__qualname__}"
+            )
+            # Append a unique suffix to avoid collisions
+            callback_id = f"{callback_id}_{str(uuid.uuid4())[:8]}"
+
+        # Use the optimizer to register the callback
+        return optimize_callback(
+            app=self.app,
+            callback_id=callback_id,
+            outputs=outputs,
+            inputs=inputs,
+            throttle_ms=throttle_ms,
+            debounce_ms=debounce_ms,
+            batch_updates=batch_updates,
+            priority=priority,
+        )(callback_function)
+
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """
+        Get performance statistics for callback registrars.
+
+        Returns:
+            Dictionary with performance statistics
+        """
+        total_elapsed = time.time() - self.start_time
+
+        stats = {
+            "total_registrars": len(self.registrars),
+            "executed_registrars": len(self.registered),
+            "total_elapsed_seconds": total_elapsed,
+            "execution_times": self.execution_times,
+            "execution_counts": self.execution_counts,
+        }
+
+        # Add optimizer stats if available
+        if hasattr(self, "optimizer") and self.use_optimization:
+            try:
+                optimizer_stats = self.optimizer.get_optimization_stats()
+                stats["optimizer"] = optimizer_stats
+            except Exception as e:
+                logger.error(f"Error getting optimizer stats: {str(e)}")
+
+        return stats
 
 
 # Decorator for standardizing callback registrar functions
