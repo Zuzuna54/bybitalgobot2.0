@@ -23,6 +23,12 @@ from dotenv import load_dotenv
 import pandas as pd
 import numpy as np
 
+# Import component lifecycle management
+from src.core.component_lifecycle import (
+    initialize_component_system,
+    component_manager,
+)
+
 # Import system components
 from src.config.config_manager import ConfigManager
 from src.api.bybit_client import BybitClient
@@ -32,6 +38,10 @@ from src.trade_management.trade_manager import TradeManager
 from src.risk_management.risk_manager import RiskManager
 from src.performance.performance_tracker import PerformanceTracker
 from src.backtesting.backtest_engine import BacktestEngine
+from src.models.models import Signal, SignalType
+
+# We use the existing component_manager from src.core
+# No need to create a new one with: component_manager = ComponentManager()
 
 
 class TradingSystem:
@@ -71,6 +81,9 @@ class TradingSystem:
         # Validate configuration for the selected mode
         self._validate_config_for_mode()
 
+        # Initialize component lifecycle management system
+        initialize_component_system(register_signal_handlers=False)
+
         # Initialize components
         self._initialize_components()
 
@@ -78,7 +91,112 @@ class TradingSystem:
         self.is_running = False
         self.shutdown_requested = False
 
-        logger.info("Trading system initialized")
+        logger.info("Trading system initialized successfully")
+
+    def _register_components(self):
+        """Register all components with the component manager."""
+        # Note: We're using methods of the TradingSystem class as component initializers,
+        # so they need access to 'self'. We'll create wrapper methods that capture 'self'.
+
+        # Register API client
+        component_manager.register_component(
+            name="api_client",
+            init_method=lambda: self._initialize_api_client(),
+            dependencies=[],
+        )
+
+        # Register market data service
+        component_manager.register_component(
+            name="market_data",
+            init_method=lambda: self._initialize_market_data(),
+            dependencies=["api_client"],
+        )
+
+        # Register indicator manager
+        component_manager.register_component(
+            name="indicator_manager",
+            init_method=lambda: self._initialize_indicators(),
+            dependencies=[],
+        )
+
+        # Register risk manager
+        component_manager.register_component(
+            name="risk_manager",
+            init_method=lambda: self._initialize_risk_manager(),
+            dependencies=[],
+        )
+
+        # Register strategy manager - now properly accessing components from the manager
+        component_manager.register_component(
+            name="strategy_manager",
+            init_method=lambda: self._initialize_strategy_manager(),
+            dependencies=["indicator_manager"],
+        )
+
+        # Register trade manager - now properly accessing components from the manager
+        component_manager.register_component(
+            name="trade_manager",
+            init_method=lambda: self._initialize_trade_manager(),
+            dependencies=["api_client", "risk_manager"],
+        )
+
+        # Register performance tracker
+        component_manager.register_component(
+            name="performance_tracker",
+            init_method=lambda: self._initialize_performance_tracker(),
+            dependencies=[],
+        )
+
+        # Register backtest engine (optional for non-backtest modes)
+        component_manager.register_component(
+            name="backtest_engine",
+            init_method=lambda: self._initialize_backtest_engine(),
+            dependencies=["market_data", "indicator_manager", "strategy_manager"],
+            optional=not self.is_backtest,
+        )
+
+        # Register paper trading engine (optional for non-paper modes)
+        component_manager.register_component(
+            name="paper_trading_engine",
+            init_method=lambda: self._initialize_paper_trading(),
+            dependencies=["api_client", "trade_manager"],
+            optional=not self.is_paper,
+        )
+
+        # Register websocket connections (optional)
+        component_manager.register_component(
+            name="websocket_manager",
+            init_method=lambda: self._initialize_websockets(),
+            dependencies=["api_client"],
+            optional=True,
+        )
+
+        # Register dashboard (optional)
+        component_manager.register_component(
+            name="dashboard",
+            init_method=lambda: self._initialize_dashboard(),
+            dependencies=["api_client", "strategy_manager", "performance_tracker"],
+            optional=True,
+        )
+
+        # Register shutdown handlers
+        component_manager.register_shutdown_handler(
+            name="performance_tracker",
+            handler=lambda: self._shutdown_performance_tracker(),
+        )
+
+        component_manager.register_shutdown_handler(
+            name="websocket_manager", handler=lambda: self._shutdown_websocket_manager()
+        )
+
+        component_manager.register_shutdown_handler(
+            name="paper_trading_engine",
+            handler=lambda: self._shutdown_paper_trading_engine(),
+        )
+
+        component_manager.register_shutdown_handler(
+            name="dashboard", handler=lambda: self._shutdown_dashboard()
+        )
 
     def _validate_config_for_mode(self):
         """Validate configuration for the selected operating mode."""
@@ -275,76 +393,44 @@ class TradingSystem:
         )
 
     def _initialize_components(self) -> None:
-        """Initialize all trading system components in proper order."""
+        """Initialize all trading system components using the component manager."""
         try:
-            # Step 1: Load environment variables and configuration
-            from dotenv import load_dotenv  # Import here to handle optional dependency
-
+            # First load environment variables
             load_dotenv()
             logger.info("Loading environment variables from .env file")
 
-            # Step 2: Initialize API client (needed by most other components)
-            self._initialize_api_client()
-            logger.info("API client initialized")
+            # Register components with the component manager
+            self._register_components()
+            logger.info(f"Registered {len(component_manager.components)} components")
 
-            # Step 3: Initialize market data service
-            self._initialize_market_data()
-            logger.info("Market data service initialized")
+            # Initialize components through the component manager
+            logger.info("Starting component initialization")
+            component_manager.initialize_all()
 
-            # Step 4: Initialize technical indicators
-            self._initialize_indicators()
-            logger.info("Technical indicators initialized")
+            # Validate that all necessary dependencies are satisfied
+            component_manager.validate_dependencies()
 
-            # Step 5: Initialize strategy manager (depends on indicators)
-            self._initialize_strategy_manager()
-            logger.info("Strategy manager initialized")
+            # Log initialization status
+            status_report = component_manager.get_status_report()
+            init_time = status_report.get("initialization_time", 0)
+            logger.info(f"Component initialization completed in {init_time:.3f}s")
 
-            # Step 6: Initialize risk manager
-            self._initialize_risk_manager()
-            logger.info("Risk manager initialized")
+            # Log component initialization details at debug level
+            for name, info in status_report.get("components", {}).items():
+                status = info.get("status", "unknown")
+                init_time = info.get("initialization_time", 0)
+                logger.debug(
+                    f"Component '{name}' status: {status}, "
+                    f"initialization time: {init_time:.3f}s"
+                )
 
-            # Step 7: Initialize trade manager (depends on API, risk manager)
-            self._initialize_trade_manager()
-            logger.info("Trade manager initialized")
+            # Assign component instances to instance variables for compatibility
+            for component_name in component_manager.initialized:
+                instance = component_manager.get_component(component_name)
+                setattr(self, component_name, instance)
 
-            # Step 8: Initialize performance tracker
-            self._initialize_performance_tracker()
-            logger.info("Performance tracker initialized")
-
-            # Step 9: Initialize backtesting engine if needed
-            if self.is_backtest:
-                self._initialize_backtest_engine()
-                logger.info("Backtest engine initialized")
-
-            # Step 10: Initialize paper trading if needed
-            if self.is_paper:
-                self._initialize_paper_trading()
-                logger.info("Paper trading engine initialized")
-
-            # Step 11: Initialize websockets for real-time data
-            if not self.is_backtest:
-                try:
-                    self._initialize_websockets()
-                    logger.info("WebSocket connections initialized")
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to initialize WebSockets: {e}. Continuing without real-time data."
-                    )
-
-            # Step 12: Initialize dashboard if requested
-            if self.with_dashboard:
-                try:
-                    self._initialize_dashboard()
-                    logger.info("Dashboard initialized")
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to initialize dashboard: {e}. Continuing without dashboard."
-                    )
-
-            # Step 13: Validate dependencies
-            if not self._validate_dependencies():
-                logger.error("Component dependencies validation failed")
-                raise RuntimeError("Failed to initialize all required components")
+            # Validate that mode-specific components are properly initialized
+            self._validate_mode_specific_components()
 
             logger.info("All components initialized successfully")
         except Exception as e:
@@ -354,8 +440,35 @@ class TradingSystem:
             logger.debug(traceback.format_exc())
             raise
 
-    def _initialize_api_client(self) -> None:
-        """Initialize the API client."""
+    def _validate_mode_specific_components(self):
+        """Validate that mode-specific components are properly initialized."""
+        # For backtest mode, ensure backtest engine is initialized
+        if self.is_backtest and "backtest_engine" not in component_manager.initialized:
+            logger.error("Backtest engine not initialized for backtest mode")
+            raise RuntimeError("Backtest engine required for backtest mode")
+
+        # For paper trading mode, ensure required components exist
+        if self.is_paper and "trade_manager" not in component_manager.initialized:
+            logger.error("Trade manager not initialized for paper trading mode")
+            raise RuntimeError("Trade manager required for paper trading mode")
+
+        # For live trading mode, ensure required components exist
+        if self.is_live:
+            required_components = ["api_client", "trade_manager", "risk_manager"]
+            missing = [
+                c for c in required_components if c not in component_manager.initialized
+            ]
+            if missing:
+                logger.error(f"Missing required components for live trading: {missing}")
+                raise RuntimeError(f"Components {missing} required for live trading")
+
+    def _initialize_api_client(self) -> BybitClient:
+        """
+        Initialize the API client.
+
+        Returns:
+            Initialized ApiClient instance
+        """
         # Get API credentials from environment or config
         api_key = os.environ.get("BYBIT_API_KEY", "")
         api_secret = os.environ.get("BYBIT_API_SECRET", "")
@@ -375,66 +488,123 @@ class TradingSystem:
         )
 
         # Create API client
-        self.api_client = BybitClient(
+        api_client = BybitClient(
             api_key=api_key,
             api_secret=api_secret,
             testnet=exchange_config.get("testnet", True),
         )
 
-    def _initialize_market_data(self) -> None:
-        """Initialize the market data service."""
-        # For now, we're using the API client as our market data service
-        # This will be enhanced in future updates
+        return api_client
+
+    def _initialize_market_data(self) -> BybitClient:
+        """
+        Initialize the market data service.
+
+        Returns:
+            Initialized market data service
+        """
+        # Get API credentials from environment or config
         config_dict = self._get_config_dict()
         exchange_config = config_dict.get("exchange", {})
 
+        # Get credentials from config or environment (prefer environment)
         api_key = os.environ.get("BYBIT_API_KEY", exchange_config.get("api_key", ""))
         api_secret = os.environ.get(
             "BYBIT_API_SECRET", exchange_config.get("api_secret", "")
         )
 
-        self.market_data = BybitClient(
+        # Create market data service (currently just reusing BybitClient)
+        market_data = BybitClient(
             api_key=api_key,
             api_secret=api_secret,
             testnet=exchange_config.get("testnet", True),
         )
 
-    def _initialize_indicators(self) -> None:
-        """Initialize the indicator manager."""
-        self.indicator_manager = IndicatorManager()
+        return market_data
 
-    def _initialize_strategy_manager(self) -> None:
-        """Initialize the strategy manager."""
-        self.strategy_manager = StrategyManager(self.config, self.indicator_manager)
+    def _initialize_indicators(self) -> IndicatorManager:
+        """
+        Initialize the indicator manager.
 
-    def _initialize_risk_manager(self) -> None:
-        """Initialize the risk manager."""
+        Returns:
+            Initialized indicator manager instance
+        """
+        indicator_manager = IndicatorManager()
+        return indicator_manager
+
+    def _initialize_strategy_manager(self) -> StrategyManager:
+        """
+        Initialize the strategy manager.
+
+        Returns:
+            Initialized strategy manager instance
+        """
+        # Get the indicator manager from the component manager
+        indicator_manager = component_manager.get_component("indicator_manager")
+        strategy_manager = StrategyManager(self.config, indicator_manager)
+        return strategy_manager
+
+    def _initialize_risk_manager(self) -> RiskManager:
+        """
+        Initialize the risk manager.
+
+        Returns:
+            Initialized risk manager instance
+        """
         config_dict = self._get_config_dict()
         risk_config = config_dict.get("risk_management", config_dict.get("risk", {}))
-        self.risk_manager = RiskManager(risk_config)
+        risk_manager = RiskManager(risk_config)
+        return risk_manager
 
-    def _initialize_trade_manager(self) -> None:
-        """Initialize the trade manager."""
+    def _initialize_trade_manager(self) -> TradeManager:
+        """
+        Initialize the trade manager.
+
+        Returns:
+            Initialized trade manager instance
+        """
         config_dict = self._get_config_dict()
-        self.trade_manager = TradeManager(
-            api_client=self.api_client,
-            risk_manager=self.risk_manager,
+        # Get the dependencies from the component manager
+        api_client = component_manager.get_component("api_client")
+        risk_manager = component_manager.get_component("risk_manager")
+
+        trade_manager = TradeManager(
+            api_client=api_client,
+            risk_manager=risk_manager,
             simulate=self.is_paper or config_dict.get("simulation_mode", True),
         )
+        return trade_manager
 
-    def _initialize_performance_tracker(self) -> None:
-        """Initialize the performance tracker."""
+    def _initialize_performance_tracker(self) -> PerformanceTracker:
+        """
+        Initialize the performance tracker.
+
+        Returns:
+            Initialized performance tracker instance
+        """
         config_dict = self._get_config_dict()
         performance_config = config_dict.get(
             "performance", config_dict.get("backtest", {})
         )
-        self.performance_tracker = PerformanceTracker(
+        performance_tracker = PerformanceTracker(
             initial_balance=performance_config.get("initial_balance", 10000.0),
             data_directory=performance_config.get("data_directory", "data/performance"),
         )
+        return performance_tracker
 
-    def _initialize_backtest_engine(self) -> None:
-        """Initialize the backtest engine."""
+    def _initialize_backtest_engine(self) -> Optional[BacktestEngine]:
+        """
+        Initialize the backtest engine.
+
+        Returns:
+            Initialized backtest engine instance, or None if not in backtest mode
+        """
+        if not self.is_backtest:
+            logger.debug(
+                "Skipping backtest engine initialization (not in backtest mode)"
+            )
+            return None
+
         # Get the config dict
         config_dict = self._get_config_dict()
 
@@ -443,103 +613,67 @@ class TradingSystem:
             logger.error("Backtest configuration not found in config")
             raise ValueError("Backtest configuration required for backtest mode")
 
+        # Get the dependencies from the component manager
+        market_data = component_manager.get_component("market_data")
+        indicator_manager = component_manager.get_component("indicator_manager")
+        strategy_manager = component_manager.get_component("strategy_manager")
+
         # Pass the existing config manager instead of the raw dictionary
         # This way the BacktestEngine can use our already validated config
-        self.backtest_engine = BacktestEngine(
+        backtest_engine = BacktestEngine(
             config_manager=self.config_manager,  # Pass the config manager instead of the raw dictionary
-            market_data=self.market_data,
-            indicator_manager=self.indicator_manager,
-            strategy_manager=self.strategy_manager,
+            market_data=market_data,
+            indicator_manager=indicator_manager,
+            strategy_manager=strategy_manager,
         )
 
-    def _initialize_paper_trading(self) -> None:
-        """Initialize paper trading components."""
+        return backtest_engine
+
+    def _initialize_paper_trading(self) -> Any:
+        """
+        Initialize paper trading components.
+
+        Returns:
+            Paper trading engine instance (placeholder for now)
+        """
         # Paper trading uses the same components as live trading
         # but with simulation enabled
         logger.info("Paper trading enabled")
+        # We'll use the trade manager from the component manager
+        trade_manager = component_manager.get_component("trade_manager")
+        trade_manager.simulate = True
+        # In the future, we'll return a dedicated paper trading engine
+        return True
 
-    def _initialize_websockets(self) -> None:
-        """Initialize websocket connections for real-time data."""
+    def _initialize_websockets(self) -> Any:
+        """
+        Initialize websocket connections for real-time data.
+
+        Returns:
+            WebSocket manager instance (placeholder for now)
+        """
         # This will be implemented in a future update
         logger.info("WebSocket initialization not yet implemented")
+        # In the future, we'll return a websocket manager
+        return None
 
-    def _initialize_dashboard(self) -> None:
-        """Initialize the dashboard if requested."""
+    def _initialize_dashboard(self) -> Any:
+        """
+        Initialize the dashboard if requested.
+
+        Returns:
+            Dashboard instance (placeholder for now)
+        """
         # This will be implemented in a future update
         logger.info(
             f"Dashboard initialization not yet implemented. Port: {self.dashboard_port}"
         )
+        # In the future, we'll return a dashboard instance
+        return None
 
-    def _validate_dependencies(self) -> bool:
-        """Validate component dependencies."""
-        # Check that required components are initialized
-        required_components = [
-            "api_client",
-            "indicator_manager",
-            "strategy_manager",
-            "risk_manager",
-            "trade_manager",
-            "performance_tracker",
-        ]
-
-        for component_name in required_components:
-            if (
-                not hasattr(self, component_name)
-                or getattr(self, component_name) is None
-            ):
-                logger.error(f"Required component not initialized: {component_name}")
-                return False
-
-        # Check mode-specific components
-        if self.is_backtest and (
-            not hasattr(self, "backtest_engine") or self.backtest_engine is None
-        ):
-            logger.error("Backtest engine not initialized for backtest mode")
-            return False
-
-        return True
-
-    def start(self) -> None:
-        """Start the trading system."""
-        logger.info(f"Starting trading system in {self.mode} mode")
-
-        # Set running flag
-        self.is_running = True
-
-        # Register signal handlers
-        signal.signal(signal.SIGINT, self._handle_shutdown)
-        signal.signal(signal.SIGTERM, self._handle_shutdown)
-
-        # Run the appropriate mode
-        if self.is_backtest:
-            self._run_backtest()
-        elif self.is_paper:
-            self._run_paper_trading()
-        elif self.is_live:
-            self._run_live_trading()
-        else:
-            logger.error(f"Unknown trading mode: {self.mode}")
-            return
-
-        # Handle shutdown
-        self._shutdown()
-
-    def _handle_shutdown(self, signum, frame):
-        """Handle shutdown signal."""
-        logger.info(f"Received shutdown signal: {signum}")
-        self.shutdown_requested = True
-        # Give components a chance to finish current operations
-        if self.is_running:
-            logger.info("Initiating graceful shutdown, please wait...")
-
-    def _shutdown(self):
-        """Perform graceful system shutdown."""
-        logger.info("Initiating graceful shutdown sequence")
-
-        # Set flags to stop processing loops
-        self.is_running = False
-
-        # Step 1: Save performance data
+    # Shutdown handlers for components
+    def _shutdown_performance_tracker(self) -> None:
+        """Shutdown handler for performance tracker."""
         if hasattr(self, "performance_tracker") and self.performance_tracker:
             try:
                 logger.info("Saving performance data")
@@ -553,7 +687,8 @@ class TradingSystem:
             except Exception as e:
                 logger.error(f"Failed to save performance data: {e}")
 
-        # Step 2: Close WebSocket connections
+    def _shutdown_websocket_manager(self) -> None:
+        """Shutdown handler for websocket connections."""
         if hasattr(self, "api_client") and self.api_client:
             try:
                 logger.info("Closing WebSocket connections")
@@ -578,7 +713,8 @@ class TradingSystem:
             except Exception as e:
                 logger.error(f"Error closing WebSocket connections: {e}")
 
-        # Step 3: Close open positions in paper trading
+    def _shutdown_paper_trading_engine(self) -> None:
+        """Shutdown handler for paper trading engine."""
         if (
             self.is_paper
             and hasattr(self, "paper_trading_engine")
@@ -586,11 +722,13 @@ class TradingSystem:
         ):
             try:
                 logger.info("Closing paper trading positions")
-                self.paper_trading_engine.stop()
+                if hasattr(self.paper_trading_engine, "stop"):
+                    self.paper_trading_engine.stop()
             except Exception as e:
                 logger.error(f"Error closing paper trading positions: {e}")
 
-        # Step 4: Shut down dashboard if running
+    def _shutdown_dashboard(self) -> None:
+        """Shutdown handler for dashboard."""
         if hasattr(self, "dashboard_thread") and self.dashboard_thread:
             try:
                 logger.info("Shutting down dashboard")
@@ -602,19 +740,114 @@ class TradingSystem:
             except Exception as e:
                 logger.error(f"Error shutting down dashboard: {e}")
 
-        # Step 5: Perform final cleanup
+    def start(self) -> None:
+        """Start the trading system."""
+        logger.info(f"Starting trading system in {self.mode} mode")
+
+        # Set running flag
+        self.is_running = True
+
+        # Register signal handlers
+        signal.signal(signal.SIGINT, self._handle_shutdown)
+        signal.signal(signal.SIGTERM, self._handle_shutdown)
+
+        # Initialize components
+        self._initialize_components()
+
+        # Run the appropriate mode
+        if self.is_backtest:
+            self._run_backtest()
+        elif self.is_paper:
+            self._run_paper_trading()
+        elif self.is_live:
+            self._run_live_trading()
+        else:
+            logger.error(f"Unknown trading mode: {self.mode}")
+            return
+
+        # Perform graceful shutdown
+        self._shutdown()
+
+    def _handle_shutdown(self, signum, frame):
+        """Handle shutdown signal."""
+        logger.info(f"Received shutdown signal: {signum}")
+        self.shutdown_requested = True
+        # Give components a chance to finish current operations
+        if self.is_running:
+            logger.info("Initiating graceful shutdown, please wait...")
+
+    def _shutdown(self):
+        """Perform graceful system shutdown."""
+        logger.info("Initiating graceful shutdown sequence")
+
         try:
+            # Set flags to stop processing loops
+            self.is_running = False
+
+            # Log component statuses before shutdown
+            logger.debug("Component statuses before shutdown:")
+            for name in component_manager.initialized:
+                component = component_manager.components.get(name)
+                if component:
+                    logger.debug(f"  {name}: {component.status}")
+
+            # Use the component manager to shut down all components
+            logger.info("Shutting down components in reverse dependency order")
+            component_manager.shutdown_all()
+
+            # Final cleanup
             logger.info("Performing final cleanup")
-            # Close any remaining open resources
 
-            # Save system state if needed
+            # Save any state that needs to be persisted
             if hasattr(self, "config_manager") and self.config_manager:
-                # Save any modified configuration
-                pass
-        except Exception as e:
-            logger.error(f"Error during final cleanup: {e}")
+                logger.debug("Persisting configuration state")
+                # Save any modified configuration (to be implemented)
 
-        logger.info("Shutdown complete")
+            # Log summary of shutdown
+            logger.info(
+                f"Shutdown complete. Session duration: {self._get_session_duration()}"
+            )
+        except Exception as e:
+            logger.error(f"Error during shutdown: {e}")
+            import traceback
+
+            logger.debug(traceback.format_exc())
+
+    def _get_session_duration(self) -> str:
+        """Calculate session duration in a human-readable format."""
+        if (
+            not hasattr(component_manager, "initialization_start_time")
+            or not component_manager.initialization_start_time
+        ):
+            return "unknown"
+
+        duration = datetime.now() - component_manager.initialization_start_time
+        hours, remainder = divmod(duration.total_seconds(), 3600)
+        minutes, seconds = divmod(remainder, 60)
+
+        if hours > 0:
+            return f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+        elif minutes > 0:
+            return f"{int(minutes)}m {int(seconds)}s"
+        else:
+            return f"{int(seconds)}s"
+
+    def _get_config_dict(self) -> Dict[str, Any]:
+        """
+        Convert Pydantic model config to a dictionary for compatibility with code expecting a dict.
+
+        Returns:
+            Dictionary representation of the config
+        """
+        if hasattr(self.config, "model_dump") and callable(
+            getattr(self.config, "model_dump")
+        ):
+            # Pydantic v2
+            return self.config.model_dump()
+        elif hasattr(self.config, "dict") and callable(getattr(self.config, "dict")):
+            # Pydantic v1
+            return self.config.dict()
+        return self.config  # Already a dict
 
     def _run_backtest(self) -> None:
         """Run the system in backtest mode."""
@@ -726,7 +959,8 @@ class TradingSystem:
         logger.info("Starting paper trading mode")
 
         # Set simulation flag
-        self.trade_manager.simulate = True
+        trade_manager = component_manager.get_component("trade_manager")
+        trade_manager.simulate = True
 
         # Run trading loop
         self._run_trading_loop(is_paper_trading=True)
@@ -736,7 +970,8 @@ class TradingSystem:
         logger.info("Starting live trading mode")
 
         # Set simulation flag
-        self.trade_manager.simulate = False
+        trade_manager = component_manager.get_component("trade_manager")
+        trade_manager.simulate = False
 
         # Confirm before starting live trading
         if not self._confirm_live_trading():
@@ -758,8 +993,9 @@ class TradingSystem:
         print("!" * 80)
 
         # Get account balance
+        api_client = component_manager.get_component("api_client")
         try:
-            balance_response = self.api_client.account.get_wallet_balance()
+            balance_response = api_client.account.get_wallet_balance()
             balance = 0.0
             if (
                 balance_response
@@ -778,23 +1014,6 @@ class TradingSystem:
         # Ask for confirmation
         response = input("\nAre you sure you want to start live trading? (yes/no): ")
         return response.lower() in ("yes", "y")
-
-    def _get_config_dict(self) -> Dict[str, Any]:
-        """
-        Convert Pydantic model config to a dictionary for compatibility with code expecting a dict.
-
-        Returns:
-            Dictionary representation of the config
-        """
-        if hasattr(self.config, "model_dump") and callable(
-            getattr(self.config, "model_dump")
-        ):
-            # Pydantic v2
-            return self.config.model_dump()
-        elif hasattr(self.config, "dict") and callable(getattr(self.config, "dict")):
-            # Pydantic v1
-            return self.config.dict()
-        return self.config  # Already a dict
 
     def _run_trading_loop(self, is_paper_trading: bool) -> None:
         """
@@ -844,6 +1063,14 @@ class TradingSystem:
         self.is_running = True
         self.shutdown_requested = False
 
+        # Get components from the component manager
+        api_client = component_manager.get_component("api_client")
+        market_data = component_manager.get_component("market_data")
+        indicator_manager = component_manager.get_component("indicator_manager")
+        strategy_manager = component_manager.get_component("strategy_manager")
+        trade_manager = component_manager.get_component("trade_manager")
+        performance_tracker = component_manager.get_component("performance_tracker")
+
         # Test API connection before starting
         api_authenticated = False
         try:
@@ -855,10 +1082,10 @@ class TradingSystem:
 
             # Check connection manager settings
             logger.info(
-                f"Connection Manager testnet setting: {self.api_client.connection_manager.testnet}"
+                f"Connection Manager testnet setting: {api_client.connection_manager.testnet}"
             )
             logger.info(
-                f"Connection base URL: {self.api_client.connection_manager.base_url}"
+                f"Connection base URL: {api_client.connection_manager.base_url}"
             )
 
             # Log API key details (safely)
@@ -872,7 +1099,7 @@ class TradingSystem:
                 logger.warning("No API key found in environment variables")
 
             # Try to get ticker data to verify connection
-            ticker_response = self.api_client.market.get_tickers(symbol=symbols[0])
+            ticker_response = api_client.market.get_tickers(symbol=symbols[0])
             if ticker_response:
                 logger.info(
                     f"Successfully connected to Bybit API. Ticker data retrieved for {symbols[0]}"
@@ -880,7 +1107,7 @@ class TradingSystem:
                 # Try to verify authentication - just because we can get public data doesn't mean auth works
                 try:
                     logger.info("Attempting to authenticate with API credentials...")
-                    balance_response = self.api_client.account.get_wallet_balance()
+                    balance_response = api_client.account.get_wallet_balance()
                     logger.debug(f"Authentication response: {balance_response}")
 
                     if (
@@ -937,7 +1164,7 @@ class TradingSystem:
 
                 # Try to get real account balance if credentials are available
                 try:
-                    balance_response = self.api_client.account.get_wallet_balance()
+                    balance_response = api_client.account.get_wallet_balance()
                     if (
                         balance_response
                         and "result" in balance_response
@@ -965,8 +1192,6 @@ class TradingSystem:
                         # Get current market data using the data service
                         try:
                             # Get current time for end_time
-                            from datetime import datetime, timedelta
-
                             end_time = datetime.now()
                             # Start time is 100 bars back
                             if timeframe == "1h":
@@ -977,7 +1202,7 @@ class TradingSystem:
                                 # Default to 4 days for other timeframes
                                 start_time = end_time - timedelta(days=4)
 
-                            market_data = self.market_data.data.fetch_historical_klines(
+                            market_data_df = market_data.data.fetch_historical_klines(
                                 symbol=symbol,
                                 interval=timeframe,
                                 start_time=start_time,
@@ -991,7 +1216,6 @@ class TradingSystem:
                             # Create simulated data
                             import pandas as pd
                             import numpy as np
-                            from datetime import datetime, timedelta
 
                             # Create a date range for the last 100 periods
                             end_time = datetime.now()
@@ -1020,7 +1244,7 @@ class TradingSystem:
                             )
 
                             # Create DataFrame
-                            market_data = pd.DataFrame(
+                            market_data_df = pd.DataFrame(
                                 {
                                     "open": prices,
                                     "high": prices * 1.01,
@@ -1033,23 +1257,23 @@ class TradingSystem:
                                 index=dates,
                             )
 
-                        if market_data is None or market_data.empty:
+                        if market_data_df is None or market_data_df.empty:
                             logger.warning(f"No data available for {symbol}, skipping")
                             continue
 
                         # Apply indicators
-                        market_data = self.indicator_manager.apply_indicators(
-                            market_data
+                        market_data_df = indicator_manager.apply_indicators(
+                            market_data_df
                         )
 
                         # Store current data
                         current_market_data[symbol] = {
-                            "price": market_data.iloc[-1]["close"],
-                            "time": market_data.index[-1],
+                            "price": market_data_df.iloc[-1]["close"],
+                            "time": market_data_df.index[-1],
                         }
 
                         # Generate signals
-                        signals = self.strategy_manager.generate_signals(market_data)
+                        signals = strategy_manager.generate_signals(market_data_df)
 
                         if signals:
                             for signal in signals:
@@ -1058,20 +1282,20 @@ class TradingSystem:
                                 )
 
                                 # Process signal
-                                trade_id = self.trade_manager.process_signal(signal)
+                                trade_id = trade_manager.process_signal(signal)
 
                                 if trade_id:
-                                    trade = self.trade_manager.get_trade_by_id(trade_id)
-                                    self.performance_tracker.add_trade(trade)
+                                    trade = trade_manager.get_trade_by_id(trade_id)
+                                    performance_tracker.add_trade(trade)
 
                         # Update active trades
-                        self.trade_manager.update_active_trades(current_market_data)
+                        trade_manager.update_active_trades(current_market_data)
 
                     except Exception as e:
                         logger.error(f"Error processing symbol {symbol}: {e}")
 
                 # Update performance tracker
-                self.performance_tracker.update_balance(account_balance, unrealized_pnl)
+                performance_tracker.update_balance(account_balance, unrealized_pnl)
 
                 # Save performance metrics periodically
                 if (
@@ -1097,7 +1321,7 @@ class TradingSystem:
                 time.sleep(10)
 
         # Shutdown procedure
-        self._shutdown()
+        # Note: We don't call self._shutdown() here because it will be called in the start() method
 
     def _save_performance_metrics(self) -> None:
         """Save performance metrics to file."""
@@ -1105,15 +1329,19 @@ class TradingSystem:
             # Generate report timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 
+            # Get components from component manager
+            performance_tracker = component_manager.get_component("performance_tracker")
+            strategy_manager = component_manager.get_component("strategy_manager")
+
             # Save performance report
-            self.performance_tracker.save_performance_report(f"report_{timestamp}")
+            performance_tracker.save_performance_report(f"report_{timestamp}")
 
             # Save strategy performance
             strategy_file = os.path.join(
-                self.performance_tracker.data_directory,
+                performance_tracker.data_directory,
                 f"strategy_performance_{timestamp}.json",
             )
-            self.strategy_manager.save_performance(strategy_file)
+            strategy_manager.save_performance(strategy_file)
 
             logger.info(f"Performance metrics saved: {timestamp}")
 
