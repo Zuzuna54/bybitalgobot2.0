@@ -182,7 +182,7 @@ def create_dashboard_layout() -> html.Div:
                     dcc.Store(id="error-data", data=None),
                     # Notification trigger
                     dcc.Store(id="add-notification-trigger", data=None),
-                    # Intervals
+                    # Intervals - Original intervals maintained for backward compatibility
                     dcc.Interval(
                         id="status-update-interval", interval=5000
                     ),  # 5 seconds
@@ -190,6 +190,31 @@ def create_dashboard_layout() -> html.Div:
                         id="data-update-interval", interval=10000
                     ),  # 10 seconds
                     dcc.Interval(id="clock-interval", interval=1000),  # 1 second
+                    # New efficient polling intervals with different refresh rates
+                    # Fast refresh for market data (1 second)
+                    dcc.Interval(
+                        id="interval-market-fast",
+                        interval=1 * 1000,  # milliseconds
+                        n_intervals=0,
+                    ),
+                    # Medium refresh for positions and orders (5 seconds)
+                    dcc.Interval(
+                        id="interval-trading-medium",
+                        interval=5 * 1000,  # milliseconds
+                        n_intervals=0,
+                    ),
+                    # Slow refresh for performance metrics (30 seconds)
+                    dcc.Interval(
+                        id="interval-performance-slow",
+                        interval=30 * 1000,  # milliseconds
+                        n_intervals=0,
+                    ),
+                    # Very slow refresh for system status (60 seconds)
+                    dcc.Interval(
+                        id="interval-system-very-slow",
+                        interval=60 * 1000,  # milliseconds
+                        n_intervals=0,
+                    ),
                     # Modals
                     create_confirmation_modal(),
                     # Alerts
