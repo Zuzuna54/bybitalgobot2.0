@@ -658,18 +658,99 @@ class TradingSystem:
         return None
 
     def _initialize_dashboard(self) -> Any:
-        """
-        Initialize the dashboard if requested.
+        """Initialize dashboard in integrated mode."""
+        try:
+            # Import dashboard initialization function
+            from src.dashboard.app import initialize_dashboard
+            import threading
+            import traceback
 
-        Returns:
-            Dashboard instance (placeholder for now)
-        """
-        # This will be implemented in a future update
-        logger.info(
-            f"Dashboard initialization not yet implemented. Port: {self.dashboard_port}"
-        )
-        # In the future, we'll return a dashboard instance
-        return None
+            logger.info("Initializing dashboard in integrated mode")
+
+            # Create component registry for dashboard
+            components = {}
+
+            # List of core components to get from component manager
+            core_components = [
+                "api_client",
+                "trade_manager",
+                "performance_tracker",
+                "risk_manager",
+                "market_data",
+                "strategy_manager",
+            ]
+
+            # Add core components that exist in component manager
+            for comp_name in core_components:
+                try:
+                    component = component_manager.get_component(comp_name)
+                    if component is not None:
+                        components[comp_name] = component
+                        logger.info(f"Added component '{comp_name}' to dashboard")
+                    else:
+                        logger.warning(
+                            f"Component '{comp_name}' not available for dashboard"
+                        )
+                except Exception as e:
+                    logger.warning(f"Error getting component '{comp_name}': {str(e)}")
+
+            # Add optional components if available
+            if component_manager.is_initialized("paper_trading_engine"):
+                components["paper_trading"] = component_manager.get_component(
+                    "paper_trading_engine"
+                )
+
+            if component_manager.is_initialized("orderbook_analyzer"):
+                components["orderbook_analyzer"] = component_manager.get_component(
+                    "orderbook_analyzer"
+                )
+
+            # Display diagnostics information
+            logger.info(
+                f"Dashboard initializing with {len(components)} components: {', '.join(components.keys())}"
+            )
+
+            # Initialize dashboard application
+            self.dashboard_app = initialize_dashboard(**components)
+
+            # Get dashboard port from configuration or default
+            # Convert Pydantic model to dictionary first to use get() method
+            config_dict = self._get_config_dict()
+            dashboard_port = config_dict.get("dashboard", {}).get("port", 8050)
+
+            # Start dashboard in a separate thread
+            self.dashboard_thread = threading.Thread(
+                target=self._run_dashboard, args=(dashboard_port,), daemon=True
+            )
+            self.dashboard_thread.start()
+
+            logger.info(f"Dashboard started on port {dashboard_port}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to initialize dashboard: {str(e)}")
+            logger.debug(traceback.format_exc())
+            return False
+
+    def _run_dashboard(self, port):
+        """Run the dashboard application in a separate thread."""
+        try:
+            import traceback
+
+            # Log that we're starting the dashboard
+            logger.info(f"Starting dashboard server on port {port}")
+
+            # Configure the server with error handling
+            self.dashboard_app.run_server(
+                debug=False,  # Set to False for production
+                host="0.0.0.0",  # Allow external access
+                port=port,
+                use_reloader=False,  # Disable reloader in threaded mode
+            )
+        except Exception as e:
+            logger.error(f"Dashboard error: {str(e)}")
+            logger.debug(traceback.format_exc())
+            # Even if there's an error, we don't want to crash the main system
+            logger.warning("Dashboard failed to start, continuing without dashboard")
 
     # Shutdown handlers for components
     def _shutdown_performance_tracker(self) -> None:
@@ -728,17 +809,43 @@ class TradingSystem:
                 logger.error(f"Error closing paper trading positions: {e}")
 
     def _shutdown_dashboard(self) -> None:
-        """Shutdown handler for dashboard."""
-        if hasattr(self, "dashboard_thread") and self.dashboard_thread:
-            try:
-                logger.info("Shutting down dashboard")
-                # Set a flag to notify dashboard to shut down
-                if hasattr(self, "dashboard_stop_event") and self.dashboard_stop_event:
-                    self.dashboard_stop_event.set()
-                    # Give the dashboard some time to shut down
-                    self.dashboard_thread.join(timeout=5)
-            except Exception as e:
-                logger.error(f"Error shutting down dashboard: {e}")
+        """Gracefully shut down the dashboard."""
+        if not hasattr(self, "dashboard_thread") or not self.dashboard_thread:
+            logger.info("No dashboard to shut down")
+            return
+
+        try:
+            import traceback
+
+            logger.info("Shutting down dashboard")
+
+            # Use a dedicated flag to signal shutdown if available
+            if hasattr(self, "dashboard_app") and hasattr(self.dashboard_app, "server"):
+                # We'll try to shut down the Flask server if possible
+                try:
+                    # This will only work if the server has a shutdown function
+                    if hasattr(self.dashboard_app.server, "shutdown"):
+                        self.dashboard_app.server.shutdown()
+                        logger.info("Dashboard server shutdown function called")
+                except Exception as e:
+                    logger.debug(f"Could not call server shutdown: {str(e)}")
+
+            # Wait for dashboard thread to terminate (with timeout)
+            if self.dashboard_thread.is_alive():
+                logger.info("Waiting for dashboard thread to terminate")
+                self.dashboard_thread.join(timeout=5)
+
+                if self.dashboard_thread.is_alive():
+                    logger.warning(
+                        "Dashboard thread did not terminate, proceeding with shutdown"
+                    )
+            else:
+                logger.info("Dashboard thread already terminated")
+
+            logger.info("Dashboard shutdown complete")
+        except Exception as e:
+            logger.error(f"Error during dashboard shutdown: {str(e)}")
+            logger.debug(traceback.format_exc())
 
     def start(self) -> None:
         """Start the trading system."""

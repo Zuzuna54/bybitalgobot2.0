@@ -322,6 +322,18 @@ class ComponentManager:
 
         return component.instance
 
+    def is_initialized(self, name: str) -> bool:
+        """
+        Check if a component has been successfully initialized.
+
+        Args:
+            name: Component name
+
+        Returns:
+            True if component is initialized, False otherwise
+        """
+        return name in self.initialized
+
     def validate_dependencies(self) -> bool:
         """
         Validate dependencies between components to ensure all are satisfied.

@@ -1,0 +1,455 @@
+2025-03-17 19:55:19 | INFO     | __main__:__init__:63 - Initializing trading system with config: ../config/default_config.json, mode: paper
+2025-03-17 19:55:19 | INFO     | __main__:_validate_config_for_mode:222 - Configuration validation completed successfully
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_component_system:440 - Component lifecycle management system initialized
+2025-03-17 19:55:19 | INFO     | __main__:_initialize_components:401 - Loading environment variables from .env file
+2025-03-17 19:55:19 | INFO     | __main__:_initialize_components:405 - Registered 11 components
+2025-03-17 19:55:19 | INFO     | __main__:_initialize_components:408 - Starting component initialization
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:171 - Starting component initialization sequence
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:178 - Component initialization order: api_client, indicator_manager, risk_manager, performance_tracker, market_data, websocket_manager, strategy_manager, trade_manager, backtest_engine, dashboard, paper_trading_engine
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'api_client'...
+2025-03-17 19:55:19 | INFO     | __main__:_initialize_api_client:487 - API credentials loaded: Available
+2025-03-17 19:55:19 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 19:55:19 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'api_client' initialized in 0.001s
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'api_client' successfully initialized
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'indicator_manager'...
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'indicator_manager' initialized in 0.000s
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'indicator_manager' successfully initialized
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'risk_manager'...
+2025-03-17 19:55:19 | INFO     | src.risk_management.risk_manager:__init__:88 - Risk manager initialized
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'risk_manager' initialized in 0.000s
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'risk_manager' successfully initialized
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'performance_tracker'...
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'performance_tracker' initialized in 0.000s
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'performance_tracker' successfully initialized
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'market_data'...
+2025-03-17 19:55:19 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 19:55:19 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'market_data' initialized in 0.000s
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'market_data' successfully initialized
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'websocket_manager'...
+2025-03-17 19:55:19 | INFO     | __main__:_initialize_websockets:657 - WebSocket initialization not yet implemented
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'websocket_manager' initialized in 0.000s
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'websocket_manager' successfully initialized
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'strategy_manager'...
+2025-03-17 19:55:19 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 19:55:19 | INFO     | src.strategies.base_strategy:__init__:63 - Initialized strategy: ema_crossover
+2025-03-17 19:55:19 | INFO     | src.strategies.manager.core:_init_strategies:154 - Initialized strategy: ema_crossover
+2025-03-17 19:55:19 | ERROR    | src.strategies.manager.core:_init_strategies:159 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for macd_trend_following not found
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for breakout_trading not found
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for vwap_trend_trading not found
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for atr_volatility_scalping not found
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for adx_strength_confirmation not found
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for golden_cross not found
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 19:55:19 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for keltner_channel_breakout not found
+2025-03-17 19:55:19 | INFO     | src.strategies.manager.core:__init__:86 - Strategy manager initialized with 1 strategies
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'strategy_manager' initialized in 0.004s
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'strategy_manager' successfully initialized
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'trade_manager'...
+2025-03-17 19:55:19 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'trade_manager' initialized in 0.000s
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'trade_manager' successfully initialized
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'backtest_engine'...
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'backtest_engine' initialized in 0.000s
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'backtest_engine' successfully initialized
+2025-03-17 19:55:19 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'dashboard'...
+2025-03-17 19:59:02 | INFO     | __main__:__init__:63 - Initializing trading system with config: ../config/default_config.json, mode: paper
+2025-03-17 19:59:02 | INFO     | __main__:_validate_config_for_mode:222 - Configuration validation completed successfully
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_component_system:440 - Component lifecycle management system initialized
+2025-03-17 19:59:02 | INFO     | __main__:_initialize_components:401 - Loading environment variables from .env file
+2025-03-17 19:59:02 | INFO     | __main__:_initialize_components:405 - Registered 11 components
+2025-03-17 19:59:02 | INFO     | __main__:_initialize_components:408 - Starting component initialization
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:171 - Starting component initialization sequence
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:178 - Component initialization order: api_client, indicator_manager, risk_manager, performance_tracker, market_data, websocket_manager, strategy_manager, trade_manager, backtest_engine, dashboard, paper_trading_engine
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'api_client'...
+2025-03-17 19:59:02 | INFO     | __main__:_initialize_api_client:487 - API credentials loaded: Available
+2025-03-17 19:59:02 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 19:59:02 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'api_client' initialized in 0.000s
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'api_client' successfully initialized
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'indicator_manager'...
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'indicator_manager' initialized in 0.000s
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'indicator_manager' successfully initialized
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'risk_manager'...
+2025-03-17 19:59:02 | INFO     | src.risk_management.risk_manager:__init__:88 - Risk manager initialized
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'risk_manager' initialized in 0.000s
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'risk_manager' successfully initialized
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'performance_tracker'...
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'performance_tracker' initialized in 0.000s
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'performance_tracker' successfully initialized
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'market_data'...
+2025-03-17 19:59:02 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 19:59:02 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'market_data' initialized in 0.000s
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'market_data' successfully initialized
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'websocket_manager'...
+2025-03-17 19:59:02 | INFO     | __main__:_initialize_websockets:657 - WebSocket initialization not yet implemented
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'websocket_manager' initialized in 0.000s
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'websocket_manager' successfully initialized
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'strategy_manager'...
+2025-03-17 19:59:02 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 19:59:02 | INFO     | src.strategies.base_strategy:__init__:63 - Initialized strategy: ema_crossover
+2025-03-17 19:59:02 | INFO     | src.strategies.manager.core:_init_strategies:154 - Initialized strategy: ema_crossover
+2025-03-17 19:59:02 | ERROR    | src.strategies.manager.core:_init_strategies:159 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for macd_trend_following not found
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for breakout_trading not found
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for vwap_trend_trading not found
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for atr_volatility_scalping not found
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for adx_strength_confirmation not found
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for golden_cross not found
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 19:59:02 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for keltner_channel_breakout not found
+2025-03-17 19:59:02 | INFO     | src.strategies.manager.core:__init__:86 - Strategy manager initialized with 1 strategies
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'strategy_manager' initialized in 0.004s
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'strategy_manager' successfully initialized
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'trade_manager'...
+2025-03-17 19:59:02 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'trade_manager' initialized in 0.000s
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'trade_manager' successfully initialized
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'backtest_engine'...
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'backtest_engine' initialized in 0.000s
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'backtest_engine' successfully initialized
+2025-03-17 19:59:02 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'dashboard'...
+2025-03-17 20:00:38 | INFO     | __main__:__init__:63 - Initializing trading system with config: ../config/default_config.json, mode: paper
+2025-03-17 20:00:38 | INFO     | __main__:_validate_config_for_mode:222 - Configuration validation completed successfully
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_component_system:440 - Component lifecycle management system initialized
+2025-03-17 20:00:38 | INFO     | __main__:_initialize_components:401 - Loading environment variables from .env file
+2025-03-17 20:00:38 | INFO     | __main__:_initialize_components:405 - Registered 11 components
+2025-03-17 20:00:38 | INFO     | __main__:_initialize_components:408 - Starting component initialization
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:171 - Starting component initialization sequence
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:178 - Component initialization order: api_client, indicator_manager, risk_manager, performance_tracker, market_data, websocket_manager, strategy_manager, trade_manager, backtest_engine, dashboard, paper_trading_engine
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'api_client'...
+2025-03-17 20:00:38 | INFO     | __main__:_initialize_api_client:487 - API credentials loaded: Available
+2025-03-17 20:00:38 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 20:00:38 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'api_client' initialized in 0.001s
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'api_client' successfully initialized
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'indicator_manager'...
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'indicator_manager' initialized in 0.000s
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'indicator_manager' successfully initialized
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'risk_manager'...
+2025-03-17 20:00:38 | INFO     | src.risk_management.risk_manager:__init__:88 - Risk manager initialized
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'risk_manager' initialized in 0.000s
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'risk_manager' successfully initialized
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'performance_tracker'...
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'performance_tracker' initialized in 0.000s
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'performance_tracker' successfully initialized
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'market_data'...
+2025-03-17 20:00:38 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 20:00:38 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'market_data' initialized in 0.000s
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'market_data' successfully initialized
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'websocket_manager'...
+2025-03-17 20:00:38 | INFO     | __main__:_initialize_websockets:657 - WebSocket initialization not yet implemented
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'websocket_manager' initialized in 0.000s
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'websocket_manager' successfully initialized
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'strategy_manager'...
+2025-03-17 20:00:38 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 20:00:38 | INFO     | src.strategies.base_strategy:__init__:63 - Initialized strategy: ema_crossover
+2025-03-17 20:00:38 | INFO     | src.strategies.manager.core:_init_strategies:154 - Initialized strategy: ema_crossover
+2025-03-17 20:00:38 | ERROR    | src.strategies.manager.core:_init_strategies:159 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for macd_trend_following not found
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for breakout_trading not found
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for vwap_trend_trading not found
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for atr_volatility_scalping not found
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for adx_strength_confirmation not found
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for golden_cross not found
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 20:00:38 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for keltner_channel_breakout not found
+2025-03-17 20:00:38 | INFO     | src.strategies.manager.core:__init__:86 - Strategy manager initialized with 1 strategies
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'strategy_manager' initialized in 0.004s
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'strategy_manager' successfully initialized
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'trade_manager'...
+2025-03-17 20:00:38 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'trade_manager' initialized in 0.000s
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'trade_manager' successfully initialized
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'backtest_engine'...
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'backtest_engine' initialized in 0.000s
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'backtest_engine' successfully initialized
+2025-03-17 20:00:38 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'dashboard'...
+2025-03-17 20:01:25 | INFO     | __main__:__init__:63 - Initializing trading system with config: ../config/default_config.json, mode: paper
+2025-03-17 20:01:25 | INFO     | __main__:_validate_config_for_mode:222 - Configuration validation completed successfully
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_component_system:440 - Component lifecycle management system initialized
+2025-03-17 20:01:25 | INFO     | __main__:_initialize_components:401 - Loading environment variables from .env file
+2025-03-17 20:01:25 | INFO     | __main__:_initialize_components:405 - Registered 11 components
+2025-03-17 20:01:25 | INFO     | __main__:_initialize_components:408 - Starting component initialization
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:171 - Starting component initialization sequence
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:178 - Component initialization order: api_client, indicator_manager, risk_manager, performance_tracker, market_data, websocket_manager, strategy_manager, trade_manager, backtest_engine, dashboard, paper_trading_engine
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'api_client'...
+2025-03-17 20:01:25 | INFO     | __main__:_initialize_api_client:487 - API credentials loaded: Available
+2025-03-17 20:01:25 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 20:01:25 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'api_client' initialized in 0.000s
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'api_client' successfully initialized
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'indicator_manager'...
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'indicator_manager' initialized in 0.000s
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'indicator_manager' successfully initialized
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'risk_manager'...
+2025-03-17 20:01:25 | INFO     | src.risk_management.risk_manager:__init__:88 - Risk manager initialized
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'risk_manager' initialized in 0.000s
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'risk_manager' successfully initialized
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'performance_tracker'...
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'performance_tracker' initialized in 0.000s
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'performance_tracker' successfully initialized
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'market_data'...
+2025-03-17 20:01:25 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 20:01:25 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'market_data' initialized in 0.000s
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'market_data' successfully initialized
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'websocket_manager'...
+2025-03-17 20:01:25 | INFO     | __main__:_initialize_websockets:657 - WebSocket initialization not yet implemented
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'websocket_manager' initialized in 0.000s
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'websocket_manager' successfully initialized
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'strategy_manager'...
+2025-03-17 20:01:25 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 20:01:25 | INFO     | src.strategies.base_strategy:__init__:63 - Initialized strategy: ema_crossover
+2025-03-17 20:01:25 | INFO     | src.strategies.manager.core:_init_strategies:154 - Initialized strategy: ema_crossover
+2025-03-17 20:01:25 | ERROR    | src.strategies.manager.core:_init_strategies:159 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for macd_trend_following not found
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for breakout_trading not found
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for vwap_trend_trading not found
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for atr_volatility_scalping not found
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for adx_strength_confirmation not found
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for golden_cross not found
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 20:01:25 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for keltner_channel_breakout not found
+2025-03-17 20:01:25 | INFO     | src.strategies.manager.core:__init__:86 - Strategy manager initialized with 1 strategies
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'strategy_manager' initialized in 0.004s
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'strategy_manager' successfully initialized
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'trade_manager'...
+2025-03-17 20:01:25 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'trade_manager' initialized in 0.000s
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'trade_manager' successfully initialized
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'backtest_engine'...
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'backtest_engine' initialized in 0.000s
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'backtest_engine' successfully initialized
+2025-03-17 20:01:25 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'dashboard'...
+2025-03-17 20:10:16 | INFO     | __main__:__init__:63 - Initializing trading system with config: ../config/default_config.json, mode: paper
+2025-03-17 20:10:16 | INFO     | __main__:_validate_config_for_mode:222 - Configuration validation completed successfully
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_component_system:440 - Component lifecycle management system initialized
+2025-03-17 20:10:16 | INFO     | __main__:_initialize_components:401 - Loading environment variables from .env file
+2025-03-17 20:10:16 | INFO     | __main__:_initialize_components:405 - Registered 11 components
+2025-03-17 20:10:16 | INFO     | __main__:_initialize_components:408 - Starting component initialization
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:171 - Starting component initialization sequence
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:178 - Component initialization order: api_client, indicator_manager, risk_manager, performance_tracker, market_data, websocket_manager, strategy_manager, trade_manager, backtest_engine, dashboard, paper_trading_engine
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'api_client'...
+2025-03-17 20:10:16 | INFO     | __main__:_initialize_api_client:487 - API credentials loaded: Available
+2025-03-17 20:10:16 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 20:10:16 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'api_client' initialized in 0.000s
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'api_client' successfully initialized
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'indicator_manager'...
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'indicator_manager' initialized in 0.000s
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'indicator_manager' successfully initialized
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'risk_manager'...
+2025-03-17 20:10:16 | INFO     | src.risk_management.risk_manager:__init__:88 - Risk manager initialized
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'risk_manager' initialized in 0.000s
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'risk_manager' successfully initialized
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'performance_tracker'...
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'performance_tracker' initialized in 0.000s
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'performance_tracker' successfully initialized
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'market_data'...
+2025-03-17 20:10:16 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 20:10:16 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'market_data' initialized in 0.000s
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'market_data' successfully initialized
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'websocket_manager'...
+2025-03-17 20:10:16 | INFO     | __main__:_initialize_websockets:657 - WebSocket initialization not yet implemented
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'websocket_manager' initialized in 0.000s
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'websocket_manager' successfully initialized
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'strategy_manager'...
+2025-03-17 20:10:16 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 20:10:16 | INFO     | src.strategies.base_strategy:__init__:63 - Initialized strategy: ema_crossover
+2025-03-17 20:10:16 | INFO     | src.strategies.manager.core:_init_strategies:154 - Initialized strategy: ema_crossover
+2025-03-17 20:10:16 | ERROR    | src.strategies.manager.core:_init_strategies:159 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for macd_trend_following not found
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for breakout_trading not found
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for vwap_trend_trading not found
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for atr_volatility_scalping not found
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for adx_strength_confirmation not found
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for golden_cross not found
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 20:10:16 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for keltner_channel_breakout not found
+2025-03-17 20:10:16 | INFO     | src.strategies.manager.core:__init__:86 - Strategy manager initialized with 1 strategies
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'strategy_manager' initialized in 0.004s
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'strategy_manager' successfully initialized
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'trade_manager'...
+2025-03-17 20:10:16 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'trade_manager' initialized in 0.000s
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'trade_manager' successfully initialized
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'backtest_engine'...
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'backtest_engine' initialized in 0.000s
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'backtest_engine' successfully initialized
+2025-03-17 20:10:16 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'dashboard'...
+2025-03-17 20:12:22 | INFO     | __main__:__init__:63 - Initializing trading system with config: ../config/default_config.json, mode: paper
+2025-03-17 20:12:22 | INFO     | __main__:_validate_config_for_mode:222 - Configuration validation completed successfully
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_component_system:440 - Component lifecycle management system initialized
+2025-03-17 20:12:22 | INFO     | __main__:_initialize_components:401 - Loading environment variables from .env file
+2025-03-17 20:12:22 | INFO     | __main__:_initialize_components:405 - Registered 11 components
+2025-03-17 20:12:22 | INFO     | __main__:_initialize_components:408 - Starting component initialization
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:171 - Starting component initialization sequence
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:178 - Component initialization order: api_client, indicator_manager, risk_manager, performance_tracker, market_data, websocket_manager, strategy_manager, trade_manager, backtest_engine, dashboard, paper_trading_engine
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'api_client'...
+2025-03-17 20:12:22 | INFO     | __main__:_initialize_api_client:494 - API credentials loaded: Available
+2025-03-17 20:12:22 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 20:12:22 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'api_client' initialized in 0.001s
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'api_client' successfully initialized
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'indicator_manager'...
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'indicator_manager' initialized in 0.000s
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'indicator_manager' successfully initialized
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'risk_manager'...
+2025-03-17 20:12:22 | INFO     | src.risk_management.risk_manager:__init__:88 - Risk manager initialized
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'risk_manager' initialized in 0.000s
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'risk_manager' successfully initialized
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'performance_tracker'...
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'performance_tracker' initialized in 0.000s
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'performance_tracker' successfully initialized
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'market_data'...
+2025-03-17 20:12:22 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 20:12:22 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'market_data' initialized in 0.000s
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'market_data' successfully initialized
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'websocket_manager'...
+2025-03-17 20:12:22 | INFO     | __main__:_initialize_websockets:664 - WebSocket initialization not yet implemented
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'websocket_manager' initialized in 0.000s
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'websocket_manager' successfully initialized
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'strategy_manager'...
+2025-03-17 20:12:22 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 20:12:22 | INFO     | src.strategies.base_strategy:__init__:63 - Initialized strategy: ema_crossover
+2025-03-17 20:12:22 | INFO     | src.strategies.manager.core:_init_strategies:154 - Initialized strategy: ema_crossover
+2025-03-17 20:12:22 | ERROR    | src.strategies.manager.core:_init_strategies:159 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for macd_trend_following not found
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for breakout_trading not found
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for vwap_trend_trading not found
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for atr_volatility_scalping not found
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for adx_strength_confirmation not found
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for golden_cross not found
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 20:12:22 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for keltner_channel_breakout not found
+2025-03-17 20:12:22 | INFO     | src.strategies.manager.core:__init__:86 - Strategy manager initialized with 1 strategies
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'strategy_manager' initialized in 0.004s
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'strategy_manager' successfully initialized
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'trade_manager'...
+2025-03-17 20:12:22 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'trade_manager' initialized in 0.000s
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'trade_manager' successfully initialized
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'backtest_engine'...
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'backtest_engine' initialized in 0.000s
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'backtest_engine' successfully initialized
+2025-03-17 20:12:22 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'dashboard'...
+2025-03-17 20:41:06 | INFO     | __main__:__init__:63 - Initializing trading system with config: ../config/default_config.json, mode: paper
+2025-03-17 20:41:06 | INFO     | __main__:_validate_config_for_mode:222 - Configuration validation completed successfully
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_component_system:440 - Component lifecycle management system initialized
+2025-03-17 20:41:06 | INFO     | __main__:_initialize_components:401 - Loading environment variables from .env file
+2025-03-17 20:41:06 | INFO     | __main__:_initialize_components:405 - Registered 11 components
+2025-03-17 20:41:06 | INFO     | __main__:_initialize_components:408 - Starting component initialization
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:171 - Starting component initialization sequence
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:178 - Component initialization order: api_client, indicator_manager, risk_manager, performance_tracker, market_data, websocket_manager, strategy_manager, trade_manager, backtest_engine, dashboard, paper_trading_engine
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'api_client'...
+2025-03-17 20:41:06 | INFO     | __main__:_initialize_api_client:494 - API credentials loaded: Available
+2025-03-17 20:41:06 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 20:41:06 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'api_client' initialized in 0.000s
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'api_client' successfully initialized
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'indicator_manager'...
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'indicator_manager' initialized in 0.000s
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'indicator_manager' successfully initialized
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'risk_manager'...
+2025-03-17 20:41:06 | INFO     | src.risk_management.risk_manager:__init__:88 - Risk manager initialized
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'risk_manager' initialized in 0.000s
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'risk_manager' successfully initialized
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'performance_tracker'...
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'performance_tracker' initialized in 0.000s
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'performance_tracker' successfully initialized
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'market_data'...
+2025-03-17 20:41:06 | INFO     | src.api.bybit.core.connection:set_auth_credentials:130 - API credentials updated. API key: VMml***
+2025-03-17 20:41:06 | INFO     | src.api.bybit.services.websocket_service:set_auth_credentials:89 - WebSocket authentication credentials updated. API key: VMml***
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'market_data' initialized in 0.000s
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'market_data' successfully initialized
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'websocket_manager'...
+2025-03-17 20:41:06 | INFO     | __main__:_initialize_websockets:664 - WebSocket initialization not yet implemented
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'websocket_manager' initialized in 0.000s
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'websocket_manager' successfully initialized
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'strategy_manager'...
+2025-03-17 20:41:06 | INFO     | src.strategies.ema_crossover_strategy:_init_indicators:90 - Initialized indicators for EMA Crossover strategy with fast=9, slow=21
+2025-03-17 20:41:06 | INFO     | src.strategies.base_strategy:__init__:63 - Initialized strategy: ema_crossover
+2025-03-17 20:41:06 | INFO     | src.strategies.manager.core:_init_strategies:154 - Initialized strategy: ema_crossover
+2025-03-17 20:41:06 | ERROR    | src.strategies.manager.core:_init_strategies:159 - Error initializing strategy rsi_reversal: BaseStrategy.__init__() missing 1 required positional argument: 'indicator_manager'
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for bollinger_mean_reversion
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for bollinger_mean_reversion not found
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for macd_trend_following
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for macd_trend_following not found
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for breakout_trading
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for breakout_trading not found
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for vwap_trend_trading
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for vwap_trend_trading not found
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for atr_volatility_scalping
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for atr_volatility_scalping not found
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for adx_strength_confirmation
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for adx_strength_confirmation not found
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for golden_cross
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for golden_cross not found
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.loader:load_strategy_class:91 - Could not find strategy class for keltner_channel_breakout
+2025-03-17 20:41:06 | WARNING  | src.strategies.manager.core:_init_strategies:156 - Strategy class for keltner_channel_breakout not found
+2025-03-17 20:41:06 | INFO     | src.strategies.manager.core:__init__:86 - Strategy manager initialized with 1 strategies
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'strategy_manager' initialized in 0.004s
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'strategy_manager' successfully initialized
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'trade_manager'...
+2025-03-17 20:41:06 | INFO     | src.trade_management.manager:__init__:79 - Trade manager initialized (simulation mode: True)
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'trade_manager' initialized in 0.000s
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'trade_manager' successfully initialized
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'backtest_engine'...
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize:78 - Component 'backtest_engine' initialized in 0.000s
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:206 - Component 'backtest_engine' successfully initialized
+2025-03-17 20:41:06 | INFO     | src.core.component_lifecycle:initialize_all:203 - Initializing component 'dashboard'...
