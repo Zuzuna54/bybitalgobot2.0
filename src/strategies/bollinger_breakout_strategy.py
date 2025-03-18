@@ -143,19 +143,43 @@ class BollingerBreakoutStrategy(BaseStrategy):
         current = data.iloc[-1]
         previous = data.iloc[-2]
 
-        # Get indicator values
-        bb_upper = current.get("bb_upper")
-        bb_middle = current.get("bb_middle")
-        bb_lower = current.get("bb_lower")
-        rsi = current.get("rsi")
-        volume = current.get("volume")
-        volume_sma = current.get("volume_sma")
-        atr = current.get("atr")
+        # Debug output for troubleshooting
+        logger.debug(f"Bollinger Breakout strategy columns: {list(data.columns)}")
 
-        # Previous values for confirmation
-        prev_close = previous.get("close")
-        prev_bb_upper = previous.get("bb_upper")
-        prev_bb_lower = previous.get("bb_lower")
+        # Get indicator values - try both naming conventions
+        # First try with strategy prefix
+        bb_upper = current.get(f"{self.name}_bollinger_upper")
+        if bb_upper is None:
+            # Try with default column names
+            bb_upper = current.get("bb_upper")
+
+        bb_lower = current.get(f"{self.name}_bollinger_lower")
+        if bb_lower is None:
+            bb_lower = current.get("bb_lower")
+
+        bb_middle = current.get(f"{self.name}_bollinger_middle")
+        if bb_middle is None:
+            bb_middle = current.get("bb_middle")
+
+        rsi = current.get(f"{self.name}_rsi")
+        if rsi is None:
+            rsi = current.get("rsi")
+
+        volume = current.get("volume")
+
+        # Try additional formats for volume_sma
+        volume_sma = current.get(f"{self.name}_volume_sma")
+        if volume_sma is None:
+            volume_sma = current.get("volume_sma")
+            # If still not found, calculate it on the fly if we have enough data
+            if volume_sma is None and len(data) > self.volume_ma_length:
+                volume_sma = (
+                    data["volume"].rolling(self.volume_ma_length).mean().iloc[-1]
+                )
+
+        atr = current.get(f"{self.name}_atr")
+        if atr is None:
+            atr = current.get("atr")
 
         # Skip if missing any required indicators
         if (
@@ -166,8 +190,34 @@ class BollingerBreakoutStrategy(BaseStrategy):
             or volume_sma is None
             or atr is None
         ):
-            logger.warning(f"Missing indicators for Bollinger Breakout strategy")
+            missing_indicators = []
+            if bb_upper is None:
+                missing_indicators.append("bollinger_upper")
+            if bb_lower is None:
+                missing_indicators.append("bollinger_lower")
+            if rsi is None:
+                missing_indicators.append("rsi")
+            if volume is None:
+                missing_indicators.append("volume")
+            if volume_sma is None:
+                missing_indicators.append("volume_sma")
+            if atr is None:
+                missing_indicators.append("atr")
+
+            logger.warning(
+                f"Missing indicators for Bollinger Breakout strategy: {', '.join(missing_indicators)}"
+            )
             return signals
+
+        # Previous values for confirmation
+        prev_close = previous.get("close")
+        prev_bb_upper = previous.get("bb_upper")
+        if prev_bb_upper is None:
+            prev_bb_upper = previous.get(f"{self.name}_bollinger_upper")
+
+        prev_bb_lower = previous.get("bb_lower")
+        if prev_bb_lower is None:
+            prev_bb_lower = previous.get(f"{self.name}_bollinger_lower")
 
         # Check for breakouts
         close_price = current.get("close")
@@ -242,6 +292,8 @@ class BollingerBreakoutStrategy(BaseStrategy):
                     symbol=symbol,
                     timestamp=timestamp,
                     price=close_price,
+                    strategy_name=self.name,
+                    timeframe=self.timeframe,
                     strength=strength,
                     metadata={
                         "strategy_name": self.name,
@@ -299,6 +351,8 @@ class BollingerBreakoutStrategy(BaseStrategy):
                     symbol=symbol,
                     timestamp=timestamp,
                     price=close_price,
+                    strategy_name=self.name,
+                    timeframe=self.timeframe,
                     strength=strength,
                     metadata={
                         "strategy_name": self.name,

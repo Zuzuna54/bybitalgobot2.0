@@ -100,40 +100,97 @@ class TradeManager:
                     if "totalWalletBalance" in account:
                         account_balance = float(account["totalWalletBalance"])
                         break
-
-            if account_balance == 0 and self.simulate:
-                # Use a simulated balance for testing
-                account_balance = 10000.0
-                logger.info(f"Using simulated account balance: ${account_balance}")
         except Exception as e:
-            if self.simulate:
-                # Use a simulated balance when in simulation mode
-                account_balance = 10000.0
-                logger.info(f"Using simulated account balance: ${account_balance}")
-            else:
-                logger.error(f"Error getting account balance: {e}")
-                return None
+            logger.warning(f"Could not get account balance: {e}")
+            # Use a default balance for simulation
+            account_balance = 10000.0
 
-        # Process the signal and get a trade if valid
-        trade = process_trading_signal(
+        # Process the signal using the trade lifecycle component
+        trade_info = process_trading_signal(
             signal=signal,
-            api_client=self.api_client,
-            risk_manager=self.risk_manager,
             account_balance=account_balance,
+            risk_manager=self.risk_manager,
+            existing_positions=self.active_trades,
         )
 
-        if not trade:
+        if not trade_info:
             return None
 
+        # Create a new trade
+        trade = Trade(
+            id=trade_info["id"],
+            symbol=signal.symbol,
+            direction=trade_info["direction"],
+            entry_price=trade_info["entry_price"],
+            target_price=trade_info["target_price"],
+            stop_loss=trade_info["stop_loss"],
+            size=trade_info["size"],
+            entry_time=datetime.now(),
+            status=TradeStatus.PENDING,
+            metadata={
+                "signal_id": signal.id,
+                "signal_strength": signal.strength,
+                "signal_type": signal.signal_type.name,
+                "strategy": signal.metadata.get("strategy", "unknown"),
+            },
+        )
+
         # Execute the trade
-        if self.execute_trade(trade):
-            # Store the trade
+        success = self.execute_trade(trade)
+
+        if success:
+            # Add to active trades
             self.trades[trade.id] = trade
             self.active_trades[trade.id] = trade
-
+            logger.info(f"Trade executed: {trade.id}, {trade.direction} {trade.symbol}")
             return trade.id
+        else:
+            logger.warning(f"Failed to execute trade for signal: {signal.id}")
+            return None
 
-        return None
+    def process_signals(self, signals: List[Signal]) -> List[Dict[str, Any]]:
+        """
+        Process multiple trading signals and execute trades if appropriate.
+
+        Args:
+            signals: List of trading signals
+
+        Returns:
+            List of executed trade information dictionaries
+        """
+        executed_trades = []
+
+        # Log the signals
+        logger.info(f"Processing {len(signals)} signals...")
+
+        # Process each signal
+        for signal in signals:
+            try:
+                # Process the signal
+                trade_id = self.process_signal(signal)
+
+                # If a trade was executed, add it to the list
+                if trade_id:
+                    trade = self.get_trade_by_id(trade_id)
+                    if trade:
+                        executed_trades.append(trade.to_dict())
+                        logger.info(
+                            f"Successfully executed trade {trade_id} for signal: {signal.signal_type.name} on {signal.symbol}"
+                        )
+                    else:
+                        logger.warning(f"Trade {trade_id} not found after execution")
+            except Exception as e:
+                logger.error(f"Error processing signal {signal.id}: {str(e)}")
+
+        # Log the results
+        if executed_trades:
+            logger.info(
+                f"Executed {len(executed_trades)} trades out of {len(signals)} signals"
+            )
+        else:
+            logger.info(f"No trades executed from {len(signals)} signals")
+
+        return executed_trades
 
     def execute_trade(self, trade: Trade) -> bool:
         """

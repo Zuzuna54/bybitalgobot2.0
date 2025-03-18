@@ -56,13 +56,16 @@ class StrategyManager:
             self.default_weight = config_dict.get("default_strategy_weight", 1.0)
 
             # Signal aggregation settings
-            self.signal_threshold = config_dict.get("signal_threshold", 0.6)
+            self.signal_threshold = config_dict.get("signal_threshold", 0.3)
             self.weighted_aggregation = config_dict.get(
                 "use_weighted_aggregation", True
             )
             self.min_concurrent_strategies = config_dict.get(
                 "min_concurrent_strategies", 1
             )
+
+            # Log the signal_threshold for debugging
+            logger.info(f"Signal threshold set to: {self.signal_threshold}")
         else:
             # It's a dictionary
             self.strategy_configs = config.get("strategies", {})
@@ -70,9 +73,12 @@ class StrategyManager:
             self.default_weight = config.get("default_strategy_weight", 1.0)
 
             # Signal aggregation settings
-            self.signal_threshold = config.get("signal_threshold", 0.6)
+            self.signal_threshold = config.get("signal_threshold", 0.3)
             self.weighted_aggregation = config.get("use_weighted_aggregation", True)
             self.min_concurrent_strategies = config.get("min_concurrent_strategies", 1)
+
+            # Log the signal_threshold for debugging
+            logger.info(f"Signal threshold set to: {self.signal_threshold}")
 
         # Dictionary to hold strategy instances
         self.strategies: Dict[str, BaseStrategy] = {}

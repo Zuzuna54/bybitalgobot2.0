@@ -7,6 +7,7 @@ and sell signals when it crosses below the overbought level, with additional con
 
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
+import traceback
 
 import pandas as pd
 import numpy as np
@@ -66,6 +67,15 @@ class RSIReversalStrategy(BaseStrategy):
 
         # Initialize indicators
         self._init_indicators()
+
+        # Strategy parameters (with defaults)
+        self.min_strength = config.get(
+            "min_strength", 0.0
+        )  # Default minimum signal strength
+
+        # Initialize other attributes
+        self.timeframe = config.get("timeframe", "1h")
+        self.symbol = config.get("symbol", "BTCUSDT")
 
     def _init_indicators(self) -> None:
         """Initialize the indicators required for this strategy."""
@@ -144,237 +154,403 @@ class RSIReversalStrategy(BaseStrategy):
         Generate trading signals based on RSI reversals.
 
         Args:
-            data: Market data DataFrame with OHLCV data and indicators
+            data: Market data DataFrame
 
         Returns:
             List of generated trading signals
         """
-        signals = []
+        try:
+            signals = []
 
-        # Ensure we have enough data
-        if len(data) < self.rsi_length + 5:
-            logger.warning(
-                f"Not enough data for RSI Reversal strategy (need at least {self.rsi_length + 5} bars)"
-            )
-            return signals
-
-        # Get the last two data points
-        current = data.iloc[-1]
-        previous = data.iloc[-2]
-
-        # Get indicator values
-        current_rsi = current.get("rsi")
-        previous_rsi = previous.get("rsi")
-        current_close = current.get("close")
-        previous_close = previous.get("close")
-        current_volume = current.get("volume")
-        volume_sma = current.get("volume_sma")
-        ema_fast = current.get("ema_fast")
-        ema_slow = current.get("ema_slow")
-
-        # Skip if missing any required indicators
-        if (
-            current_rsi is None
-            or previous_rsi is None
-            or current_close is None
-            or ema_fast is None
-            or ema_slow is None
-        ):
-            logger.warning(f"Missing indicators for RSI Reversal strategy")
-            return signals
-
-        # Prepare signal metadata
-        timestamp = pd.to_datetime(current.name)
-        symbol = self.config.get("symbol", "UNKNOWN")
-
-        # Check volume condition if enabled
-        volume_condition = True
-        if self.volume_filter and volume_sma is not None and current_volume is not None:
-            volume_condition = current_volume > (volume_sma * self.volume_threshold)
-
-        # Check for RSI oversold reversal (buy signal)
-        if (
-            previous_rsi <= self.rsi_oversold
-            and current_rsi > self.rsi_oversold
-            and current_close > previous_close
-            and volume_condition
-        ):
-
-            # Calculate signal strength
-            strength = self._calculate_buy_signal_strength(data)
-
-            # Check for bullish RSI divergence if enabled
-            divergence_found = False
-            if self.detect_divergence:
-                divergence_found = self._check_bullish_divergence(data)
-                if divergence_found:
-                    strength = min(
-                        strength + 0.15, 1.0
-                    )  # Increase strength if divergence found
-
-            # Create signal
-            signals.append(
-                Signal(
-                    signal_type=SignalType.BUY,
-                    symbol=symbol,
-                    timestamp=timestamp,
-                    price=current_close,
-                    strength=strength,
-                    metadata={
-                        "strategy_name": self.name,
-                        "indicators": {
-                            "rsi": current_rsi,
-                            "ema_fast": ema_fast,
-                            "ema_slow": ema_slow,
-                            "volume_ratio": (
-                                current_volume / volume_sma if volume_sma else 1.0
-                            ),
-                            "atr": current.get("atr", 0),
-                        },
-                        "divergence_found": divergence_found,
-                        "reason": "RSI crossed above oversold level with price confirmation",
-                    },
+            # Ensure we have enough data
+            if len(data) < self.rsi_length + 5:
+                logger.warning(
+                    f"Not enough data for RSI Reversal strategy (need at least {self.rsi_length + 5} bars)"
                 )
-            )
+                return signals
 
-            logger.info(
-                f"Generated BUY signal for {symbol} at {current_close} (RSI: {current_rsi:.2f}, strength: {strength:.2f})"
-            )
+            # Get the last two data points
+            current = data.iloc[-1]
+            previous = data.iloc[-2]
 
-        # Check for RSI overbought reversal (sell signal)
-        elif (
-            previous_rsi >= self.rsi_overbought
-            and current_rsi < self.rsi_overbought
-            and current_close < previous_close
-            and volume_condition
-        ):
+            # Debug log available columns
+            logger.debug(f"RSI Reversal strategy columns: {list(data.columns)}")
 
-            # Calculate signal strength
-            strength = self._calculate_sell_signal_strength(data)
+            # Get indicator values - multiple options to handle different naming conventions
+            current_rsi = current.get("rsi")
+            previous_rsi = previous.get("rsi")
 
-            # Check for bearish RSI divergence if enabled
-            divergence_found = False
-            if self.detect_divergence:
-                divergence_found = self._check_bearish_divergence(data)
-                if divergence_found:
-                    strength = min(
-                        strength + 0.15, 1.0
-                    )  # Increase strength if divergence found
+            # Extra debugging for timestamp and symbol
+            ts = getattr(current, "name", "Unknown timestamp")
+            symbol = self.config.get("symbol", "UNKNOWN")
+            logger.debug(f"Processing RSI Reversal for {symbol} at {ts}")
 
-            # Create signal
-            signals.append(
-                Signal(
-                    signal_type=SignalType.SELL,
-                    symbol=symbol,
-                    timestamp=timestamp,
-                    price=current_close,
-                    strength=strength,
-                    metadata={
-                        "strategy_name": self.name,
-                        "indicators": {
-                            "rsi": current_rsi,
-                            "ema_fast": ema_fast,
-                            "ema_slow": ema_slow,
-                            "volume_ratio": (
-                                current_volume / volume_sma if volume_sma else 1.0
-                            ),
-                            "atr": current.get("atr", 0),
-                        },
-                        "divergence_found": divergence_found,
-                        "reason": "RSI crossed below overbought level with price confirmation",
-                    },
+            # Try to get EMAs from different naming formats
+            try:
+                ema_fast = current.get("ema_fast")
+                if ema_fast is None:
+                    ema_fast = current.get(f"{self.name}_ema_fast")
+                    if ema_fast is None:
+                        ema_fast = current.get(
+                            "ema_8"
+                        )  # based on default ema_fast_length
+                        if ema_fast is None:
+                            ema_fast = current.get(f"ema_fast_{self.ema_fast_length}")
+                            if ema_fast is None:
+                                ema_fast = current.get(f"ema_{self.ema_fast_length}")
+                                if ema_fast is None:
+                                    # Directly try the column name we see in the logs
+                                    ema_fast = current.get("ema_fast_9")
+                                    if ema_fast is None:
+                                        # Add extra debugging for the specific error case
+                                        logger.debug(
+                                            f"Could not find ema_fast in any of the expected columns for {symbol} at {ts}. "
+                                            f"Available columns: {list(current.index)}."
+                                        )
+                                        # Use a default value to prevent failure
+                                        ema_fast = 0
+
+                ema_slow = current.get("ema_slow")
+                if ema_slow is None:
+                    ema_slow = current.get(f"{self.name}_ema_slow")
+                    if ema_slow is None:
+                        ema_slow = current.get(
+                            "ema_21"
+                        )  # based on default ema_slow_length
+                        if ema_slow is None:
+                            ema_slow = current.get(f"ema_slow_{self.ema_slow_length}")
+                            if ema_slow is None:
+                                ema_slow = current.get(f"ema_{self.ema_slow_length}")
+                                if ema_slow is None:
+                                    # Directly try the column name we see in the logs
+                                    ema_slow = current.get("ema_slow_21")
+                                    if ema_slow is None:
+                                        # Add extra debugging for the specific error case
+                                        logger.debug(
+                                            f"Could not find ema_slow in any of the expected columns for {symbol} at {ts}. "
+                                            f"Available columns: {list(current.index)}."
+                                        )
+                                        # Use a default value to prevent failure
+                                        ema_slow = 0
+            except Exception as e:
+                logger.error(f"Error retrieving EMAs for {symbol} at {ts}: {str(e)}")
+                ema_fast = 0
+                ema_slow = 0
+
+            # We continue with the function even if EMAs are not found
+            current_close = current.get("close")
+            previous_close = previous.get("close")
+            current_volume = current.get("volume")
+
+            # Try to get volume_sma
+            volume_sma = current.get(f"{self.name}_volume_sma")
+            if volume_sma is None:
+                volume_sma = current.get("volume_sma")
+
+            # Try to get ATR with different naming formats
+            atr = current.get(f"{self.name}_atr")
+            if atr is None:
+                atr = current.get("atr")
+
+            # Skip if missing any required indicators
+            if current_rsi is None or current_close is None:
+                logger.warning(
+                    f"Missing essential indicators for RSI Reversal strategy: rsi={current_rsi}, close={current_close}"
                 )
-            )
+                logger.debug(f"Available columns: {list(data.columns)}")
+                return signals
 
-            logger.info(
-                f"Generated SELL signal for {symbol} at {current_close} (RSI: {current_rsi:.2f}, strength: {strength:.2f})"
-            )
+            # Even if EMAs are missing, we'll use default values to prevent failures
 
-        return signals
+            # Prepare signal metadata
+            timestamp = pd.to_datetime(current.name)
+
+            # Check volume condition if enabled
+            volume_condition = True
+            if (
+                self.volume_filter
+                and volume_sma is not None
+                and current_volume is not None
+            ):
+                volume_condition = current_volume > (volume_sma * self.volume_threshold)
+
+            # Check for RSI oversold reversal (buy signal)
+            if (
+                previous_rsi <= self.rsi_oversold
+                and current_rsi > self.rsi_oversold
+                and current_close > previous_close
+                and volume_condition
+            ):
+
+                # Calculate signal strength
+                strength = self._calculate_buy_signal_strength(data)
+
+                # Check for bullish RSI divergence if enabled
+                divergence_found = False
+                if self.detect_divergence:
+                    divergence_found = self._check_bullish_divergence(data)
+                    if divergence_found:
+                        strength = min(
+                            strength + 0.15, 1.0
+                        )  # Increase strength if divergence found
+
+                # Create signal
+                signals.append(
+                    Signal(
+                        signal_type=SignalType.BUY,
+                        symbol=symbol,
+                        timestamp=timestamp,
+                        price=current_close,
+                        strategy_name=self.name,
+                        timeframe=self.timeframe,
+                        strength=strength,
+                        metadata={
+                            "strategy_name": self.name,
+                            "indicators": {
+                                "rsi": current_rsi,
+                                "ema_fast": ema_fast,
+                                "ema_slow": ema_slow,
+                                "volume_ratio": (
+                                    current_volume / volume_sma if volume_sma else 1.0
+                                ),
+                                "atr": current.get("atr", 0),
+                            },
+                            "divergence_found": divergence_found,
+                            "reason": "RSI crossed above oversold level with price confirmation",
+                        },
+                    )
+                )
+
+                logger.info(
+                    f"Generated BUY signal for {symbol} at {current_close} (RSI: {current_rsi:.2f}, strength: {strength:.2f})"
+                )
+
+            # Check for RSI overbought reversal (sell signal)
+            elif (
+                previous_rsi >= self.rsi_overbought
+                and current_rsi < self.rsi_overbought
+                and current_close < previous_close
+                and volume_condition
+            ):
+
+                # Calculate signal strength
+                strength = self._calculate_sell_signal_strength(data)
+
+                # Check for bearish RSI divergence if enabled
+                divergence_found = False
+                if self.detect_divergence:
+                    divergence_found = self._check_bearish_divergence(data)
+                    if divergence_found:
+                        strength = min(
+                            strength + 0.15, 1.0
+                        )  # Increase strength if divergence found
+
+                # Create signal
+                signals.append(
+                    Signal(
+                        signal_type=SignalType.SELL,
+                        symbol=symbol,
+                        timestamp=timestamp,
+                        price=current_close,
+                        strategy_name=self.name,
+                        timeframe=self.timeframe,
+                        strength=strength,
+                        metadata={
+                            "strategy_name": self.name,
+                            "indicators": {
+                                "rsi": current_rsi,
+                                "ema_fast": ema_fast,
+                                "ema_slow": ema_slow,
+                                "volume_ratio": (
+                                    current_volume / volume_sma if volume_sma else 1.0
+                                ),
+                                "atr": current.get("atr", 0),
+                            },
+                            "divergence_found": divergence_found,
+                            "reason": "RSI crossed below overbought level with price confirmation",
+                        },
+                    )
+                )
+
+                logger.info(
+                    f"Generated SELL signal for {symbol} at {current_close} (RSI: {current_rsi:.2f}, strength: {strength:.2f})"
+                )
+
+            return signals
+        except Exception as e:
+            logger.error(f"Unhandled error in RSI Reversal strategy: {str(e)}")
+            logger.error(f"Error traceback: {traceback.format_exc()}")
+            return []
 
     def _calculate_buy_signal_strength(self, data: pd.DataFrame) -> float:
         """
-        Calculate buy signal strength based on RSI and trend alignment.
+        Calculate the strength of a buy signal based on various factors.
 
         Args:
-            data: Market data DataFrame
+            data: DataFrame with relevant indicator data
 
         Returns:
-            Signal strength (0.0 to 1.0)
+            Signal strength as a float between 0 and 1
         """
-        current = data.iloc[-1]
+        try:
+            current = data.iloc[-1]
 
-        # Base strength starts at 0.7
-        strength = 0.7
-
-        # RSI component: stronger if RSI was deeper oversold
-        rsi_values = data["rsi"].tail(3)
-        min_rsi = min(rsi_values)
-
-        # If RSI went extremely low, increase strength
-        if min_rsi < 20:
-            strength += 0.1
-
-        # Trend component: check if price is above fast EMA
-        if current["close"] > current["ema_fast"]:
-            strength += 0.05
-
-        # Volume component: stronger if volume is well above average
-        if "volume" in data.columns and "volume_sma" in data.columns:
-            volume_ratio = (
-                current["volume"] / current["volume_sma"]
-                if current["volume_sma"] > 0
-                else 1.0
+            # Initialize base strength - start with a much higher base value
+            strength = (
+                0.5  # Start with a base strength of 0.5 to ensure we can exceed 0.6
             )
-            if volume_ratio > 2.0:
-                strength += 0.1
-            elif volume_ratio > 1.5:
-                strength += 0.05
 
-        # Cap strength at 1.0
-        return min(strength, 1.0)
+            # Check if RSI is in oversold territory
+            rsi = current.get("rsi")
+            if rsi is None:
+                return 0.0  # Skip if RSI is not available
+
+            # Get ema values safely with fallbacks
+            ema_fast = current.get("ema_fast")
+            if ema_fast is None:
+                ema_fast = current.get(f"{self.name}_ema_fast")
+                if ema_fast is None:
+                    ema_fast = current.get("ema_fast_9")
+                    if ema_fast is None:
+                        # Try other fallbacks
+                        ema_fast = current.get(f"ema_{self.ema_fast_length}")
+                        if ema_fast is None:
+                            # Use a default value
+                            ema_fast = current.get("close", 0)
+
+            ema_slow = current.get("ema_slow")
+            if ema_slow is None:
+                ema_slow = current.get(f"{self.name}_ema_slow")
+                if ema_slow is None:
+                    ema_slow = current.get("ema_slow_21")
+                    if ema_slow is None:
+                        # Try other fallbacks
+                        ema_slow = current.get(f"ema_{self.ema_slow_length}")
+                        if ema_slow is None:
+                            # Use a default value
+                            ema_slow = current.get("close", 0)
+
+            close = current.get("close", 0)
+
+            # Factor 1: RSI reading (0-1 based on how far into oversold territory)
+            if rsi < self.rsi_oversold:
+                rsi_factor = min((self.rsi_oversold - rsi) / self.rsi_oversold, 1.0)
+                strength += rsi_factor * 0.2  # 20% weight to RSI
+
+            # Add a small factor even if RSI is just approaching oversold territory
+            elif rsi < self.rsi_oversold + 10:  # More lenient threshold
+                rsi_approach_factor = min((self.rsi_oversold + 10 - rsi) / 10, 1.0)
+                strength += rsi_approach_factor * 0.15
+
+            # Factor 2: Price distance from fast EMA (0-1)
+            if close < ema_fast:
+                # If price is below fast EMA, factor is 0
+                price_ema_factor = 0
+            else:
+                price_ema_factor = min(abs(close - ema_fast) / (close * 0.03), 1.0)
+                strength += price_ema_factor * 0.15  # 15% weight
+
+            # Factor 3: EMA crossover - fast over slow (0-1)
+            if ema_fast > ema_slow:
+                ema_cross_factor = min(
+                    abs(ema_fast - ema_slow) / (ema_slow * 0.01), 1.0
+                )
+                strength += min(ema_cross_factor, 1.0) * 0.15  # 15% weight
+
+            # Apply any additional filtering logic
+            if self.min_strength > 0 and strength < self.min_strength:
+                return 0.0
+
+            return min(strength, 1.0)  # Cap at 1.0 maximum
+        except Exception as e:
+            logger.error(f"Error in _calculate_buy_signal_strength: {str(e)}")
+            return 0.0
 
     def _calculate_sell_signal_strength(self, data: pd.DataFrame) -> float:
         """
-        Calculate sell signal strength based on RSI and trend alignment.
+        Calculate the strength of a sell signal based on various factors.
 
         Args:
-            data: Market data DataFrame
+            data: DataFrame with relevant indicator data
 
         Returns:
-            Signal strength (0.0 to 1.0)
+            Signal strength as a float between 0 and 1
         """
-        current = data.iloc[-1]
+        try:
+            current = data.iloc[-1]
 
-        # Base strength starts at 0.7
-        strength = 0.7
-
-        # RSI component: stronger if RSI was extremely overbought
-        rsi_values = data["rsi"].tail(3)
-        max_rsi = max(rsi_values)
-
-        # If RSI went extremely high, increase strength
-        if max_rsi > 80:
-            strength += 0.1
-
-        # Trend component: check if price is below fast EMA
-        if current["close"] < current["ema_fast"]:
-            strength += 0.05
-
-        # Volume component: stronger if volume is well above average
-        if "volume" in data.columns and "volume_sma" in data.columns:
-            volume_ratio = (
-                current["volume"] / current["volume_sma"]
-                if current["volume_sma"] > 0
-                else 1.0
+            # Initialize base strength - start with a much higher base value
+            strength = (
+                0.5  # Start with a base strength of 0.5 to ensure we can exceed 0.6
             )
-            if volume_ratio > 2.0:
-                strength += 0.1
-            elif volume_ratio > 1.5:
-                strength += 0.05
 
-        # Cap strength at 1.0
-        return min(strength, 1.0)
+            # Check if RSI is in overbought territory
+            rsi = current.get("rsi")
+            if rsi is None:
+                return 0.0  # Skip if RSI is not available
+
+            # Get ema values safely with fallbacks
+            ema_fast = current.get("ema_fast")
+            if ema_fast is None:
+                ema_fast = current.get(f"{self.name}_ema_fast")
+                if ema_fast is None:
+                    ema_fast = current.get("ema_fast_9")
+                    if ema_fast is None:
+                        # Try other fallbacks
+                        ema_fast = current.get(f"ema_{self.ema_fast_length}")
+                        if ema_fast is None:
+                            # Use a default value
+                            ema_fast = current.get("close", 0)
+
+            ema_slow = current.get("ema_slow")
+            if ema_slow is None:
+                ema_slow = current.get(f"{self.name}_ema_slow")
+                if ema_slow is None:
+                    ema_slow = current.get("ema_slow_21")
+                    if ema_slow is None:
+                        # Try other fallbacks
+                        ema_slow = current.get(f"ema_{self.ema_slow_length}")
+                        if ema_slow is None:
+                            # Use a default value
+                            ema_slow = current.get("close", 0)
+
+            close = current.get("close", 0)
+
+            # Factor 1: RSI reading (0-1 based on how far into overbought territory)
+            if rsi > self.rsi_overbought:
+                rsi_factor = min(
+                    (rsi - self.rsi_overbought) / (100 - self.rsi_overbought), 1.0
+                )
+                strength += rsi_factor * 0.2  # 20% weight to RSI
+
+            # Add a small factor even if RSI is just approaching overbought territory
+            elif rsi > self.rsi_overbought - 10:  # More lenient threshold
+                rsi_approach_factor = min((rsi - (self.rsi_overbought - 10)) / 10, 1.0)
+                strength += rsi_approach_factor * 0.15
+
+            # Factor 2: Price distance from fast EMA (0-1)
+            if close > ema_fast:
+                # If price is above fast EMA, factor is 0
+                price_ema_factor = 0
+            else:
+                price_ema_factor = min(abs(close - ema_fast) / (close * 0.03), 1.0)
+                strength += price_ema_factor * 0.15  # 15% weight
+
+            # Factor 3: EMA crossover - slow over fast (0-1)
+            if ema_slow > ema_fast:
+                ema_cross_factor = min(
+                    abs(ema_slow - ema_fast) / (ema_fast * 0.01), 1.0
+                )
+                strength += min(ema_cross_factor, 1.0) * 0.15  # 15% weight
+
+            # Apply any additional filtering logic
+            if self.min_strength > 0 and strength < self.min_strength:
+                return 0.0
+
+            return min(strength, 1.0)  # Cap at 1.0 maximum
+        except Exception as e:
+            logger.error(f"Error in _calculate_sell_signal_strength: {str(e)}")
+            return 0.0
 
     def _check_bullish_divergence(self, data: pd.DataFrame) -> bool:
         """

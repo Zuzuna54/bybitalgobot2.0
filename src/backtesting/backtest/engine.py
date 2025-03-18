@@ -242,7 +242,7 @@ class BacktestEngine:
         # Initialize equity curve with starting balance
         self.equity_curve.append(
             {
-                "timestamp": pd.to_datetime(start_date),
+                "timestamp": self._ensure_utc(pd.to_datetime(start_date)),
                 "balance": self.initial_balance,
                 "equity": self.initial_balance,
                 "drawdown_pct": 0.0,
@@ -255,7 +255,7 @@ class BacktestEngine:
         for symbol in symbols:
             # Load data with warmup period
             start_date_with_warmup = (
-                pd.to_datetime(start_date)
+                self._ensure_utc(pd.to_datetime(start_date))
                 - pd.Timedelta(
                     days=int(warmup_bars * timeframe_to_minutes(timeframe) / (60 * 24))
                 )
@@ -271,6 +271,9 @@ class BacktestEngine:
                 )
 
                 if df is not None and not df.empty:
+                    # Ensure the dataframe index has consistent timezone handling (UTC)
+                    df.index = self._ensure_utc(df.index)
+
                     # Apply indicators to data
                     df = self.indicator_manager.apply_indicators(df)
                     historical_data[symbol] = df
@@ -280,6 +283,9 @@ class BacktestEngine:
 
             except Exception as e:
                 logger.error(f"Error loading data for {symbol}: {e}")
+                import traceback
+
+                logger.debug(f"Data loading error details: {traceback.format_exc()}")
 
         if not historical_data:
             logger.error("No valid data available for any symbols")
@@ -289,10 +295,10 @@ class BacktestEngine:
         earliest_start = min(df.index[warmup_bars] for df in historical_data.values())
         latest_end = max(df.index[-1] for df in historical_data.values())
 
-        # Create a common date range
+        # Create a common date range with consistent timezone (UTC)
         date_range = pd.date_range(
-            start=max(pd.to_datetime(start_date), earliest_start),
-            end=min(pd.to_datetime(end_date), latest_end),
+            start=max(self._ensure_utc(pd.to_datetime(start_date)), earliest_start),
+            end=min(self._ensure_utc(pd.to_datetime(end_date)), latest_end),
             freq=timeframe_to_pandas_freq(timeframe),
         )
 
@@ -312,66 +318,87 @@ class BacktestEngine:
                 if current_time not in df.index:
                     continue
 
-                current_idx = df.index.get_loc(current_time)
+                # Get the index position for current_time
+                try:
+                    current_idx = df.index.get_loc(current_time)
 
-                # Skip if we don't have enough data
-                if current_idx < warmup_bars:
-                    continue
+                    # If we got a slice (happens with duplicate timestamps), use the first element
+                    if isinstance(current_idx, slice):
+                        current_idx = current_idx.start
 
-                # Get data up to the current bar
-                current_data = df.iloc[: current_idx + 1]
-                current_bar = current_data.iloc[-1]
+                    # Skip if we don't have enough data
+                    if current_idx < warmup_bars:
+                        continue
 
-                # Process active positions
-                new_balance = process_positions(
-                    symbol=symbol,
-                    current_time=current_time,
-                    current_data=current_data,
-                    risk_manager=risk_manager,
-                    performance_tracker=performance_tracker,
-                    current_positions=self.current_positions,
-                    trades=self.trades,
-                    slippage=self.slippage,
-                    commission_rate=self.commission_rate,
-                )
+                    # Get data up to the current bar
+                    current_data = df.iloc[: current_idx + 1]
+                    current_bar = current_data.iloc[-1]
 
-                if new_balance is not None:
-                    self.current_balance = new_balance
-
-                # Generate signals from strategies
-                signals = self.strategy_manager.generate_signals(current_data)
-
-                # Record signals
-                for signal in signals:
-                    self.signals.append(signal.to_dict())
-
-                # Execute signals if there's no current position
-                if symbol not in self.current_positions and signals:
-                    for signal in signals:
-                        # Skip signals for other symbols
-                        if signal.symbol != symbol:
-                            continue
-
-                        # Create a trade from the signal
-                        result = execute_signal(
-                            signal=signal,
-                            current_time=current_time,
-                            current_data=current_data,
-                            risk_manager=risk_manager,
-                            strategy_manager=self.strategy_manager,
-                            current_positions=self.current_positions,
-                            current_balance=self.current_balance,
-                            slippage=self.slippage,
-                            commission_rate=self.commission_rate,
-                            trades=self.trades,
+                    # Apply indicators to data before strategy processing
+                    try:
+                        current_data = self.indicator_manager.apply_indicators(
+                            current_data
                         )
+                        logger.debug(
+                            f"Applied indicators to {symbol} data at {current_time}"
+                        )
+                    except Exception as e:
+                        logger.error(f"Error applying indicators to {symbol} data: {e}")
+                        # Continue with unprocessed data
 
-                        if result:
-                            trade_id, new_balance = result
-                            self.current_balance = new_balance
-                            logger.info(
-                                f"Executed {signal.signal_type.name} trade for {symbol} at {signal.price}"
+                    # Process active positions
+                    new_balance = process_positions(
+                        symbol=symbol,
+                        current_time=current_time,
+                        current_data=current_data,
+                        risk_manager=risk_manager,
+                        performance_tracker=performance_tracker,
+                        current_positions=self.current_positions,
+                        trades=self.trades,
+                        slippage=self.slippage,
+                        commission_rate=self.commission_rate,
+                    )
+
+                    if new_balance is not None:
+                        self.current_balance = new_balance
+
+                    # Generate signals from strategies
+                    signals = self.strategy_manager.generate_signals(current_data)
+
+                    # Record signals
+                    for signal in signals:
+                        self.signals.append(signal.to_dict())
+
+                    # Execute signals if there's no current position
+                    if symbol not in self.current_positions and signals:
+                        for signal in signals:
+                            # Skip signals for other symbols
+                            if signal.symbol != symbol:
+                                continue
+
+                            # Create a trade from the signal
+                            result = execute_signal(
+                                signal=signal,
+                                current_time=current_time,
+                                current_data=current_data,
+                                risk_manager=risk_manager,
+                                strategy_manager=self.strategy_manager,
+                                current_positions=self.current_positions,
+                                current_balance=self.current_balance,
+                                slippage=self.slippage,
+                                commission_rate=self.commission_rate,
+                                trades=self.trades,
                             )
+
+                            if result:
+                                trade_id, new_balance = result
+                                self.current_balance = new_balance
+                                logger.info(
+                                    f"Executed {signal.signal_type.name} trade for {symbol} at {signal.price}"
+                                )
+                except Exception as e:
+                    logger.error(f"Error processing {symbol} at {current_time}: {e}")
+                    continue
 
             # Calculate equity at current time
             current_equity = calculate_equity(
@@ -446,3 +473,25 @@ class BacktestEngine:
 
         logger.info(f"Backtest completed with {len(self.trades)} trades")
         return results
+
+    def _ensure_utc(self, timestamp):
+        """
+        Ensure timestamp is in UTC, converting if it already has timezone info
+        or localizing to UTC if it's timezone-naive.
+
+        Args:
+            timestamp: A timestamp or DatetimeIndex
+
+        Returns:
+            Timestamp or DatetimeIndex in UTC
+        """
+        if isinstance(timestamp, pd.DatetimeIndex):
+            if timestamp.tz is None:
+                return timestamp.tz_localize("UTC")
+            else:
+                return timestamp.tz_convert("UTC")
+        else:
+            if timestamp.tzinfo is None:
+                return pd.to_datetime(timestamp).tz_localize("UTC")
+            else:
+                return pd.to_datetime(timestamp).tz_convert("UTC")
