@@ -122,7 +122,9 @@ class DashboardDataService:
                 self.component_registry.register_many(components)
 
         # Validate components
-        self.is_valid, self.missing_components = self._validate_components()
+        self.is_valid, self.missing_components = self._validate_components(
+            self.component_registry
+        )
 
         # Data storage
         self._performance_data = {}
@@ -164,9 +166,12 @@ class DashboardDataService:
             logger.warning("Running in standalone mode with limited functionality")
             self._initialize_standalone_mode()
 
-    def _validate_components(self):
+    def _validate_components(self, component_registry=None):
         """
         Validate that all required components are registered.
+
+        Args:
+            component_registry: Component registry to validate. If None, uses self.component_registry.
 
         Returns:
             Tuple of (is_valid, missing_components)
@@ -180,10 +185,13 @@ class DashboardDataService:
 
         missing_components = []
 
-        if self.component_registry:
+        # Use provided registry or fall back to self.component_registry
+        registry = component_registry or self.component_registry
+
+        if registry:
             # Check using the registry
             for component_name in required_components:
-                if not self.component_registry.is_registered(component_name):
+                if not registry.is_registered(component_name):
                     missing_components.append(component_name)
         else:
             # Check direct references
