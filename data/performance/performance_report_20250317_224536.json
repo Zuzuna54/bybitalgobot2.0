@@ -1,0 +1,31 @@
+{
+  "generated_at": "2025-03-17T22:45:36.876279",
+  "reporting_currency": "USD",
+  "trade_statistics": {
+    "total_trades": 0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "win_rate": 0.0
+  },
+  "return_metrics": {
+    "initial_balance": 10000.0,
+    "current_balance": 10000.0,
+    "total_pnl": 0.0,
+    "total_return": 0.0,
+    "annualized_return": 0.0
+  },
+  "risk_metrics": {
+    "max_drawdown": 0.0,
+    "volatility": 0.0,
+    "sharpe_ratio": 0.0,
+    "sortino_ratio": 0.0,
+    "calmar_ratio": 0.0
+  },
+  "trade_quality": {
+    "average_win": 0.0,
+    "average_loss": 0.0,
+    "win_loss_ratio": 0.0,
+    "profit_factor": 0.0,
+    "expectancy": 0.0
+  }
+}

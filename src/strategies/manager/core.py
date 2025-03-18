@@ -13,7 +13,7 @@ from src.strategies.base_strategy import BaseStrategy
 from src.models.models import Signal, SignalType, SignalStrength
 from src.indicators.indicator_manager import IndicatorManager
 
-from src.strategies.manager.loader import load_strategy_class
+from src.strategies.manager.loader import load_strategy_class, get_available_strategies
 from src.strategies.manager.signal_aggregator import (
     aggregate_signals,
     create_aggregated_signal,
@@ -107,38 +107,52 @@ class StrategyManager:
 
     def _init_strategies(self) -> None:
         """Initialize all enabled strategies from configuration."""
-        # If strategies is a list (from JSON config), convert to dict by name
+        # Convert strategies to dictionary if it's a list
         if isinstance(self.strategy_configs, list):
-            # Convert list of strategy configs to dict keyed by name
             strategies_dict = {}
             for strategy in self.strategy_configs:
                 if isinstance(strategy, dict) and "name" in strategy:
                     strategies_dict[strategy["name"]] = strategy
-
-            # Replace the list with the created dictionary
             self.strategy_configs = strategies_dict
 
-        # Now process the dictionary of strategies
+        # Get available strategy names
+        available_strategies = set(get_available_strategies())
+
+        # Process each strategy
         for strategy_name, strategy_config in self.strategy_configs.items():
             # Skip disabled strategies
-            if not strategy_config.get(
-                "enabled", strategy_config.get("is_active", True)
+            if isinstance(strategy_config, dict) and not strategy_config.get(
+                "is_active", True
             ):
-                logger.debug(f"Strategy {strategy_name} is disabled - skipping")
+                logger.info(f"Skipping disabled strategy: {strategy_name}")
+                continue
+
+            # Check if strategy exists
+            if strategy_name not in available_strategies:
+                logger.warning(f"Unknown strategy: {strategy_name}")
                 continue
 
             try:
-                # Dynamically import and instantiate strategy
+                # Load the strategy class
                 strategy_class = load_strategy_class(strategy_name)
+                if not strategy_class:
+                    logger.warning(f"Failed to load strategy class: {strategy_name}")
+                    continue
 
-                if strategy_class:
-                    # Create strategy instance
-                    strategy = strategy_class(strategy_config, self.indicator_manager)
+                # Initialize strategy
+                strategy = strategy_class(
+                    config=strategy_config, indicator_manager=self.indicator_manager
+                )
 
-                    # Add to strategies dictionary
-                    self.strategies[strategy_name] = strategy
+                # Register strategy
+                self.strategies[strategy_name] = strategy
 
-                    # Initialize performance tracking
+                # Initialize strategy weight if not already set
+                if strategy_name not in self.strategy_weights:
+                    self.strategy_weights[strategy_name] = self.default_weight
+
+                # Initialize performance tracking if not already done
+                if strategy_name not in self.strategy_performance:
                     self.strategy_performance[strategy_name] = {
                         "signals_generated": 0,
                         "signals_executed": 0,
@@ -151,12 +165,15 @@ class StrategyManager:
                         ),
                     }
 
-                    logger.info(f"Initialized strategy: {strategy_name}")
-                else:
-                    logger.warning(f"Strategy class for {strategy_name} not found")
-
+                logger.info(f"Initialized strategy: {strategy_name}")
             except Exception as e:
-                logger.error(f"Error initializing strategy {strategy_name}: {e}")
+                logger.error(f"Error initializing strategy {strategy_name}: {str(e)}")
+
+        logger.info(f"Initialized {len(self.strategies)} strategies")
+
+        # Check for no active strategies
+        if not self.strategies:
+            logger.warning("No active strategies initialized!")
 
     def generate_signals(self, data: pd.DataFrame) -> List[Signal]:
         """

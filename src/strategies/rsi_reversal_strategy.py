@@ -35,7 +35,8 @@ class RSIReversalStrategy(BaseStrategy):
             config: Strategy configuration parameters
             indicator_manager: Indicator manager instance
         """
-        super().__init__(config, indicator_manager)
+        # Set name and initialize all parameters before calling parent constructor
+        # to ensure they're available during _init_indicators
         self.name = "rsi_reversal"
         self.description = "RSI Reversal with Price and Volume Confirmation"
 
@@ -60,40 +61,83 @@ class RSIReversalStrategy(BaseStrategy):
         self.atr_stop_multiplier = config.get("atr_stop_multiplier", 2.0)
         self.risk_reward_ratio = config.get("risk_reward_ratio", 2.0)
 
+        # Now call the parent constructor
+        super().__init__(config, indicator_manager)
+
         # Initialize indicators
         self._init_indicators()
 
     def _init_indicators(self) -> None:
         """Initialize the indicators required for this strategy."""
-        # Add RSI
-        self.indicators.add_indicator("rsi", {"length": self.rsi_length})
+        # Define indicator names with prefix to ensure uniqueness
+        prefix = f"{self.name}_"
+        rsi_name = f"{prefix}rsi"
+        ema_fast_name = f"{prefix}ema_fast"
+        ema_slow_name = f"{prefix}ema_slow"
+        volume_sma_name = f"{prefix}volume_sma"
+        atr_name = f"{prefix}atr"
 
-        # Add EMAs for trend confirmation
-        self.indicators.add_indicator(
-            "ema",
-            {
-                "length": self.ema_fast_length,
-                "target_column": "close",
-                "output_name": "ema_fast",
-            },
-        )
+        # Store indicator names for later reference
+        self.strategy_indicators = [
+            rsi_name,
+            ema_fast_name,
+            ema_slow_name,
+            volume_sma_name,
+            atr_name,
+        ]
 
-        self.indicators.add_indicator(
-            "ema",
-            {
-                "length": self.ema_slow_length,
-                "target_column": "close",
-                "output_name": "ema_slow",
-            },
-        )
+        # Check if indicators already exist (to avoid duplicate initialization)
+        indicators = self.indicator_manager.indicators.keys()
 
-        # Add Volume MA
-        self.indicators.add_indicator(
-            "volume_sma", {"length": self.volume_ma_length, "target_column": "volume"}
-        )
+        # Add RSI if it doesn't exist
+        if rsi_name not in indicators:
+            self.indicator_manager.add_indicator(
+                rsi_name, "rsi", {"period": self.rsi_length}
+            )
 
-        # Add ATR for stop loss calculation
-        self.indicators.add_indicator("atr", {"length": self.atr_length})
+        # Add EMAs for trend confirmation if they don't exist
+        if ema_fast_name not in indicators:
+            self.indicator_manager.add_indicator(
+                ema_fast_name,
+                "ma",
+                {
+                    "period": self.ema_fast_length,
+                    "type": "ema",
+                    "target_column": "close",
+                    "output_name": "ema_fast",
+                },
+            )
+
+        if ema_slow_name not in indicators:
+            self.indicator_manager.add_indicator(
+                ema_slow_name,
+                "ma",
+                {
+                    "period": self.ema_slow_length,
+                    "type": "ema",
+                    "target_column": "close",
+                    "output_name": "ema_slow",
+                },
+            )
+
+        # Add Volume SMA for volume filtering if it doesn't exist
+        if volume_sma_name not in indicators:
+            self.indicator_manager.add_indicator(
+                volume_sma_name,
+                "ma",
+                {
+                    "period": self.volume_ma_length,
+                    "type": "sma",
+                    "target_column": "volume",
+                    "output_name": "volume_sma",
+                },
+            )
+
+        # Add ATR for stop loss calculation if it doesn't exist
+        if atr_name not in indicators:
+            self.indicator_manager.add_indicator(
+                atr_name, "atr", {"period": self.atr_length}
+            )
 
     def generate_signals(self, data: pd.DataFrame) -> List[Signal]:
         """

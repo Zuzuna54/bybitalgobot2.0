@@ -23,22 +23,43 @@ class BaseStrategy(ABC):
     """Base class for all trading strategies."""
 
     def __init__(
-        self, name: str, config: Dict[str, Any], indicator_manager: IndicatorManager
+        self,
+        name_or_config: Union[str, Dict[str, Any]],
+        config_or_indicator: Union[Dict[str, Any], IndicatorManager],
+        indicator_manager_or_none: Optional[IndicatorManager] = None,
     ):
         """
-        Initialize the strategy.
+        Initialize the strategy with flexible parameter order for backwards compatibility.
+
+        This constructor supports two different calling patterns:
+        1. __init__(name, config, indicator_manager) - New style
+        2. __init__(config, indicator_manager) - Old style where name is set in subclass
 
         Args:
-            name: Strategy name
-            config: Strategy configuration
-            indicator_manager: Indicator manager for technical indicators
+            name_or_config: Either the strategy name (str) or the config dictionary
+            config_or_indicator: Either the config dictionary or the indicator manager
+            indicator_manager_or_none: The indicator manager if using pattern 1, None if using pattern 2
         """
-        self.name = name
-        self.config = config
-        self.indicator_manager = indicator_manager
-        self.timeframe = config.get("timeframe", "1h")
-        self.is_active = config.get("is_active", True)
-        self.parameters = config.get("parameters", {})
+        # Determine which parameter pattern is being used
+        if isinstance(name_or_config, str) and indicator_manager_or_none is not None:
+            # Pattern 1: __init__(name, config, indicator_manager)
+            self.name = name_or_config
+            self.config = config_or_indicator
+            self.indicator_manager = indicator_manager_or_none
+        else:
+            # Pattern 2: __init__(config, indicator_manager)
+            self.config = name_or_config
+            self.indicator_manager = config_or_indicator
+            # Name will be set by the subclass
+            self.name = getattr(self, "name", "unnamed_strategy")
+
+        # For backward compatibility, alias indicator_manager as indicators
+        self.indicators = self.indicator_manager
+
+        # Common initialization from here
+        self.timeframe = self.config.get("timeframe", "1h")
+        self.is_active = self.config.get("is_active", True)
+        self.parameters = self.config.get("parameters", {})
 
         # Configuration validation
         self._validate_config()
@@ -58,9 +79,14 @@ class BaseStrategy(ABC):
         self.required_columns: List[str] = []
 
         # Init strategy-specific indicators
-        self._init_indicators()
+        # Move this to the end to allow subclasses to initialize their attributes first
+        # self._init_indicators()
 
         logger.info(f"Initialized strategy: {self.name}")
+
+        # Init strategy-specific indicators after logging initialization
+        # This ensures all subclass attributes are set before indicators are initialized
+        self._init_indicators()
 
     def _validate_config(self) -> None:
         """
@@ -74,6 +100,96 @@ class BaseStrategy(ABC):
 
         if "parameters" not in self.config:
             raise ValueError("Strategy configuration must include parameters")
+
+    def set_parameters(self, parameters: Dict[str, Any]) -> None:
+        """
+        Set or update strategy parameters.
+
+        Args:
+            parameters: Dictionary of parameter names and values
+        """
+        # Validate parameters
+        valid_parameters = self._validate_parameters(parameters)
+
+        # Update parameters
+        self.parameters.update(valid_parameters)
+
+        # Re-initialize indicators with new parameters
+        self._init_indicators()
+
+        logger.info(f"Updated parameters for strategy {self.name}: {valid_parameters}")
+
+    def _validate_parameters(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate strategy parameters.
+
+        Args:
+            parameters: Dictionary of parameter names and values
+
+        Returns:
+            Dictionary of validated parameters
+        """
+        valid_parameters = {}
+
+        # Define parameter schema (override in subclasses)
+        parameter_schema = self._get_parameter_schema()
+
+        # Validate each parameter
+        for name, value in parameters.items():
+            # Check if parameter exists in schema
+            if name not in parameter_schema:
+                logger.warning(f"Unknown parameter for strategy {self.name}: {name}")
+                continue
+
+            # Get parameter definition
+            param_def = parameter_schema[name]
+
+            # Check parameter type
+            expected_type = param_def.get("type")
+            if expected_type and not isinstance(value, expected_type):
+                logger.warning(
+                    f"Invalid type for parameter {name} in strategy {self.name}. Expected {expected_type.__name__}, got {type(value).__name__}"
+                )
+                continue
+
+            # Check parameter range
+            min_val = param_def.get("min")
+            if min_val is not None and value < min_val:
+                logger.warning(
+                    f"Parameter {name} in strategy {self.name} is below minimum value {min_val}"
+                )
+                continue
+
+            max_val = param_def.get("max")
+            if max_val is not None and value > max_val:
+                logger.warning(
+                    f"Parameter {name} in strategy {self.name} is above maximum value {max_val}"
+                )
+                continue
+
+            # Add validated parameter
+            valid_parameters[name] = value
+
+        return valid_parameters
+
+    def _get_parameter_schema(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get parameter schema for validation.
+
+        Returns:
+            Dictionary of parameter definitions
+        """
+        # Base implementation - override in subclasses
+        return {
+            # Example parameter schema:
+            # "fast_ema": {
+            #     "type": int,
+            #     "min": 1,
+            #     "max": 100,
+            #     "default": 9,
+            #     "description": "Fast EMA period"
+            # }
+        }
 
     @abstractmethod
     def _init_indicators(self) -> None:
