@@ -11,6 +11,8 @@ import numpy as np
 from datetime import datetime, timedelta
 from loguru import logger
 
+from src.dashboard.utils.transformers import data_transformer
+
 # Sample data for standalone mode
 SAMPLE_EQUITY_DATA = [
     {
@@ -131,13 +133,49 @@ def _update_performance_data(service):
         # Keep using existing data if update fails
 
 
-def get_performance_data(self) -> Dict[str, Any]:
+def get_performance_data(self, timeframe="all"):
     """
-    Get performance data for the dashboard.
+    Get performance metrics data.
+
+    Args:
+        timeframe: Time period for performance data ('day', 'week', 'month', 'all')
 
     Returns:
-        Dictionary with performance data
+        Dictionary with performance metrics
     """
+    # If we have a real performance tracker, use it
+    if not self.is_standalone and self.performance_tracker:
+        try:
+            # Get raw performance data
+            if hasattr(self.performance_tracker, "get_performance_metrics"):
+                raw_metrics = self.performance_tracker.get_performance_metrics(
+                    timeframe
+                )
+
+                # Process and transform the data for dashboard display
+                processed_metrics = data_transformer.transform_performance_metrics(
+                    raw_metrics
+                )
+
+                # Update the cache
+                self._performance_data = processed_metrics
+                self._data_updated_at["performance"] = datetime.now()
+                self._increment_data_version("performance")
+
+                return processed_metrics
+        except Exception as e:
+            logger.error(f"Error fetching performance data: {str(e)}")
+            # Fall back to cached data
+            logger.debug("Falling back to cached performance data")
+
+    # Check if we need to refresh the cache for standalone mode
+    last_update = self._data_updated_at.get("performance")
+    if self.is_standalone and (
+        last_update is None or (datetime.now() - last_update).seconds > 60
+    ):
+        _update_performance_data(self)
+
+    # If no performance tracker or error occurred, return cached data
     return self._performance_data
 
 

@@ -744,6 +744,137 @@ class DataTransformer:
                 "candles": pd.DataFrame(),
             }
 
+    @staticmethod
+    @cache(ttl=300, category="performance_metrics", priority=8)
+    def transform_performance_metrics(raw_metrics):
+        """
+        Transform raw performance metrics into dashboard-friendly format.
+
+        Args:
+            raw_metrics: Raw performance metrics from performance tracker
+
+        Returns:
+            Transformed performance metrics
+        """
+        if not raw_metrics:
+            return {}
+
+        # Initialize transformed data
+        transformed = {
+            "summary": {},
+            "equity_curve": [],
+            "drawdown": [],
+            "trade_history": [],
+            "monthly_returns": {},
+        }
+
+        # Transform summary metrics
+        if "summary" in raw_metrics:
+            summary = raw_metrics["summary"]
+            transformed["summary"] = {
+                "total_return": DataTransformer._format_percentage(
+                    summary.get("total_return", 0)
+                ),
+                "win_rate": DataTransformer._format_percentage(
+                    summary.get("win_rate", 0)
+                ),
+                "profit_factor": DataTransformer._format_number(
+                    summary.get("profit_factor", 0)
+                ),
+                "max_drawdown": DataTransformer._format_percentage(
+                    summary.get("max_drawdown", 0)
+                ),
+                "sharpe_ratio": DataTransformer._format_number(
+                    summary.get("sharpe_ratio", 0)
+                ),
+                "sortino_ratio": DataTransformer._format_number(
+                    summary.get("sortino_ratio", 0)
+                ),
+                "calmar_ratio": DataTransformer._format_number(
+                    summary.get("calmar_ratio", 0)
+                ),
+                "average_win": DataTransformer._format_percentage(
+                    summary.get("average_win", 0)
+                ),
+                "average_loss": DataTransformer._format_percentage(
+                    summary.get("average_loss", 0)
+                ),
+                "win_loss_ratio": DataTransformer._format_number(
+                    summary.get("win_loss_ratio", 0)
+                ),
+                "trade_count": summary.get("trade_count", 0),
+            }
+
+        # Transform equity curve
+        if "equity_curve" in raw_metrics and isinstance(
+            raw_metrics["equity_curve"], list
+        ):
+            transformed["equity_curve"] = [
+                {"timestamp": item.get("timestamp", ""), "value": item.get("value", 0)}
+                for item in raw_metrics["equity_curve"]
+            ]
+
+        # Transform drawdown
+        if "drawdown" in raw_metrics and isinstance(raw_metrics["drawdown"], list):
+            transformed["drawdown"] = [
+                {"timestamp": item.get("timestamp", ""), "value": item.get("value", 0)}
+                for item in raw_metrics["drawdown"]
+            ]
+
+        # Transform trade history
+        if "trades" in raw_metrics and isinstance(raw_metrics["trades"], list):
+            transformed["trade_history"] = [
+                {
+                    "id": trade.get("id", ""),
+                    "symbol": trade.get("symbol", ""),
+                    "entry_time": trade.get("entry_time", ""),
+                    "exit_time": trade.get("exit_time", ""),
+                    "direction": trade.get("direction", ""),
+                    "entry_price": DataTransformer._format_number(
+                        trade.get("entry_price", 0)
+                    ),
+                    "exit_price": DataTransformer._format_number(
+                        trade.get("exit_price", 0)
+                    ),
+                    "profit_loss": DataTransformer._format_number(
+                        trade.get("realized_pnl", 0)
+                    ),
+                    "profit_loss_pct": DataTransformer._format_percentage(
+                        trade.get("profit_loss_pct", 0)
+                    ),
+                    "strategy": trade.get("strategy", ""),
+                }
+                for trade in raw_metrics["trades"]
+            ]
+
+        # Transform monthly returns
+        if "monthly_returns" in raw_metrics and isinstance(
+            raw_metrics["monthly_returns"], dict
+        ):
+            transformed["monthly_returns"] = raw_metrics["monthly_returns"]
+
+        return transformed
+
+    @staticmethod
+    def _format_percentage(value):
+        """Format a value as a percentage string."""
+        try:
+            return (
+                f"{float(value) * 100:.2f}%"
+                if isinstance(value, (int, float))
+                else "0.00%"
+            )
+        except (ValueError, TypeError):
+            return "0.00%"
+
+    @staticmethod
+    def _format_number(value):
+        """Format a numeric value."""
+        try:
+            return f"{float(value):.2f}" if isinstance(value, (int, float)) else "0.00"
+        except (ValueError, TypeError):
+            return "0.00"
+
 
 # Create a singleton instance for easy access
 data_transformer = DataTransformer()

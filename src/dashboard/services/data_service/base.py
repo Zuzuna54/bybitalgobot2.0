@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 from loguru import logger
+import threading
 
 from src.dashboard.utils.transformers import data_transformer
 from src.dashboard.services.component_registry import ComponentRegistry
@@ -54,6 +55,7 @@ class DashboardDataService:
 
     def __init__(
         self,
+        component_registry=None,
         api_client=None,
         trade_manager=None,
         performance_tracker=None,
@@ -62,12 +64,12 @@ class DashboardDataService:
         market_data=None,
         paper_trading=None,
         orderbook_analyzer=None,
-        component_registry=None,
     ):
         """
         Initialize the data service.
 
         Args:
+            component_registry: Component registry instance (optional)
             api_client: Bybit API client
             trade_manager: Trade manager instance
             performance_tracker: Performance tracker instance
@@ -76,8 +78,10 @@ class DashboardDataService:
             market_data: Market data instance
             paper_trading: Paper trading simulator instance
             orderbook_analyzer: Orderbook analyzer instance
-            component_registry: Component registry instance (optional)
         """
+        # Initialize thread-safe lock for data access
+        self._lock = threading.RLock()
+
         # If component registry is provided, use it to get components
         if component_registry and isinstance(component_registry, ComponentRegistry):
             self.component_registry = component_registry
@@ -102,18 +106,24 @@ class DashboardDataService:
             self.orderbook_analyzer = orderbook_analyzer
 
             # Create a component registry if needed for later use
-            if all([api_client, trade_manager, performance_tracker]):
+            if any([api_client, trade_manager, performance_tracker]):
                 self.component_registry = ComponentRegistry()
                 # Register all components
-                components = {
-                    "api_client": api_client,
-                    "trade_manager": trade_manager,
-                    "performance_tracker": performance_tracker,
-                    "risk_manager": risk_manager,
-                    "strategy_manager": strategy_manager,
-                    "market_data": market_data,
-                }
-                # Add optional components if available
+                components = {}
+
+                # Only add components that exist
+                if api_client:
+                    components["api_client"] = api_client
+                if trade_manager:
+                    components["trade_manager"] = trade_manager
+                if performance_tracker:
+                    components["performance_tracker"] = performance_tracker
+                if risk_manager:
+                    components["risk_manager"] = risk_manager
+                if strategy_manager:
+                    components["strategy_manager"] = strategy_manager
+                if market_data:
+                    components["market_data"] = market_data
                 if paper_trading:
                     components["paper_trading"] = paper_trading
                 if orderbook_analyzer:
@@ -126,7 +136,11 @@ class DashboardDataService:
             self.component_registry
         )
 
-        # Data storage
+        # Set update interval
+        self.update_interval_sec = 1.0  # Default update interval
+        self.last_update_time = {}
+
+        # Initialize data storage
         self._performance_data = {}
         self._trade_data = {}
         self._orderbook_data = {}
@@ -165,6 +179,9 @@ class DashboardDataService:
         if self.is_standalone:
             logger.warning("Running in standalone mode with limited functionality")
             self._initialize_standalone_mode()
+        else:
+            logger.info("Running in integrated mode with live data")
+            self.update_all_data()  # Initialize with real data
 
     def _validate_components(self, component_registry=None):
         """
@@ -191,8 +208,46 @@ class DashboardDataService:
         if registry:
             # Check using the registry
             for component_name in required_components:
-                if not registry.is_registered(component_name):
+                component = registry.get(component_name)
+                if component is None:
                     missing_components.append(component_name)
+                else:
+                    # Validate component capabilities
+                    try:
+                        if component_name == "performance_tracker" and not hasattr(
+                            component, "get_performance_metrics"
+                        ):
+                            logger.warning(
+                                f"Component {component_name} is missing required method: get_performance_metrics"
+                            )
+                            missing_components.append(
+                                f"{component_name} (missing methods)"
+                            )
+                        elif component_name == "trade_manager" and not hasattr(
+                            component, "get_active_positions"
+                        ):
+                            logger.warning(
+                                f"Component {component_name} is missing required method: get_active_positions"
+                            )
+                            missing_components.append(
+                                f"{component_name} (missing methods)"
+                            )
+                        elif component_name == "strategy_manager" and not hasattr(
+                            component, "get_strategies"
+                        ):
+                            logger.warning(
+                                f"Component {component_name} is missing required method: get_strategies"
+                            )
+                            missing_components.append(
+                                f"{component_name} (missing methods)"
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"Error validating component {component_name}: {str(e)}"
+                        )
+                        missing_components.append(
+                            f"{component_name} (validation error)"
+                        )
         else:
             # Check direct references
             component_dict = {
@@ -205,6 +260,43 @@ class DashboardDataService:
             for component_name, component in component_dict.items():
                 if component is None:
                     missing_components.append(component_name)
+                else:
+                    # Validate component capabilities
+                    try:
+                        if component_name == "performance_tracker" and not hasattr(
+                            component, "get_performance_metrics"
+                        ):
+                            logger.warning(
+                                f"Component {component_name} is missing required method: get_performance_metrics"
+                            )
+                            missing_components.append(
+                                f"{component_name} (missing methods)"
+                            )
+                        elif component_name == "trade_manager" and not hasattr(
+                            component, "get_active_positions"
+                        ):
+                            logger.warning(
+                                f"Component {component_name} is missing required method: get_active_positions"
+                            )
+                            missing_components.append(
+                                f"{component_name} (missing methods)"
+                            )
+                        elif component_name == "strategy_manager" and not hasattr(
+                            component, "get_strategies"
+                        ):
+                            logger.warning(
+                                f"Component {component_name} is missing required method: get_strategies"
+                            )
+                            missing_components.append(
+                                f"{component_name} (missing methods)"
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"Error validating component {component_name}: {str(e)}"
+                        )
+                        missing_components.append(
+                            f"{component_name} (validation error)"
+                        )
 
         if missing_components:
             logger.warning(
@@ -274,7 +366,8 @@ class DashboardDataService:
         Returns:
             Current version number
         """
-        return self._data_versions.get(data_type, 0)
+        with self._lock:
+            return self._data_versions.get(data_type, 0)
 
     def _increment_data_version(self, data_type):
         """
@@ -283,19 +376,108 @@ class DashboardDataService:
         Args:
             data_type: Type of data ('performance', 'trades', etc.)
         """
-        self._data_versions[data_type] = self._data_versions.get(data_type, 0) + 1
-        self._data_updated_at[data_type] = datetime.now()
+        with self._lock:
+            self._data_versions[data_type] = self._data_versions.get(data_type, 0) + 1
+            self._data_updated_at[data_type] = datetime.now()
+
+    def is_data_stale(self, data_type, max_age_sec=60):
+        """
+        Check if data is considered stale.
+
+        Args:
+            data_type: Type of data ('performance', 'trades', etc.)
+            max_age_sec: Maximum age in seconds before data is considered stale
+
+        Returns:
+            True if data is stale or doesn't exist, False otherwise
+        """
+        with self._lock:
+            last_updated = self._data_updated_at.get(data_type)
+            if last_updated is None:
+                return True
+
+            age_sec = (datetime.now() - last_updated).total_seconds()
+            return age_sec > max_age_sec
+
+    def get_data_age(self, data_type):
+        """
+        Get the age of data in seconds.
+
+        Args:
+            data_type: Type of data ('performance', 'trades', etc.)
+
+        Returns:
+            Age in seconds or None if data doesn't exist
+        """
+        with self._lock:
+            last_updated = self._data_updated_at.get(data_type)
+            if last_updated is None:
+                return None
+
+            return (datetime.now() - last_updated).total_seconds()
 
     def update_all_data(self):
         """Update all dashboard data at once."""
         logger.debug("Updating all dashboard data")
 
-        _update_performance_data(self)
-        _update_trade_data(self)
-        _update_system_status(self)
-        _update_orderbook_data(self)
-        _update_market_data(self)
-        _update_strategy_data(self)
+        with self._lock:
+            # Track current time to avoid redundant updates
+            current_time = datetime.now()
+
+            # Only update if enough time has passed since last update
+            if (
+                self.last_update_time.get("performance") is None
+                or (
+                    current_time - self.last_update_time.get("performance")
+                ).total_seconds()
+                > self.update_interval_sec
+            ):
+                _update_performance_data(self)
+                self.last_update_time["performance"] = current_time
+
+            if (
+                self.last_update_time.get("trades") is None
+                or (current_time - self.last_update_time.get("trades")).total_seconds()
+                > self.update_interval_sec
+            ):
+                _update_trade_data(self)
+                self.last_update_time["trades"] = current_time
+
+            if (
+                self.last_update_time.get("system") is None
+                or (current_time - self.last_update_time.get("system")).total_seconds()
+                > self.update_interval_sec
+            ):
+                _update_system_status(self)
+                self.last_update_time["system"] = current_time
+
+            if (
+                self.last_update_time.get("orderbook") is None
+                or (
+                    current_time - self.last_update_time.get("orderbook")
+                ).total_seconds()
+                > self.update_interval_sec
+            ):
+                _update_orderbook_data(self)
+                self.last_update_time["orderbook"] = current_time
+
+            if (
+                self.last_update_time.get("market") is None
+                or (current_time - self.last_update_time.get("market")).total_seconds()
+                > self.update_interval_sec
+            ):
+                _update_market_data(self)
+                self.last_update_time["market"] = current_time
+
+            if (
+                self.last_update_time.get("strategy") is None
+                or (
+                    current_time - self.last_update_time.get("strategy")
+                ).total_seconds()
+                > self.update_interval_sec
+            ):
+                _update_strategy_data(self)
+                self.last_update_time["strategy"] = current_time
 
     # Re-export methods from specific modules
     get_performance_data = get_performance_data
